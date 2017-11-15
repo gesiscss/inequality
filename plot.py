@@ -25,44 +25,31 @@ def plot_gender_numcum(ax, cohort_duration, selected_cumnum_df, year):
     return ax
 	
 	
-def plot_cohort_analysis_on(data, criterion, group_year, isCumulative, criteria_display):
+def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
     # data - groupByAuthorYearData (or) groupCitationsByAuthorYearData
     # criterion - 'cum_num_pub' (or) 'cum_num_cit'
     # criteria_display - 'Cumulative Publication Count' (or) 'Cumulative Citation Count'
-    # cohort_len = []
+    #cohort_len = []
     
-    #print(authorStartEndCareerData.head(n=1))
+    years = data['year'].unique() 
+    years = sorted(years)
+    
+    step = years[1] - years[0]
+    
     gini_per_cohort = pd.DataFrame(index=years)
     cumnum_per_cohort = pd.DataFrame(index=years)
-    
-    if group_year > 1:
-        yearGroups = range(1970, 2020, GROUP_YEAR)
-        data['group_year'] = pd.cut(data['year'], bins=yearGroups, labels=yearGroups[:-1])
-        data['group_start_year'] = pd.cut(data['start_year'], bins=yearGroups, labels=yearGroups[:-1])
-        data['group_end_year'] = pd.cut(data['end_year'], bins=yearGroups, labels=yearGroups[:-1])
-    else:
-        data['group_year'] = data['year']
-        data['group_start_year'] = data['start_year']
-        data['group_end_year'] = data['end_year']
 
-    if isCumulative:
-        data = data.set_index('group_year').sort_index()
-        data['cum_'+criterion] = data.groupby(['author'])[criterion].transform(pd.Series.cumsum)
-        data = data.reset_index()
-        criterion = 'cum_'+criterion
-        
-    
-    years = data['group_year'].unique() 
-    years = sorted(years)
 
     #fig2, ax2 = plt.subplots()
     fig2 = plt.figure()
     ax2 = fig2.add_subplot(1,1,1)
     fig3 = plt.figure()
     ax3 = fig3.add_subplot(1,1,1)
+    
+    
 
 
-    max_years = data['group_year'].max() - data['group_year'].min()
+    #max_years = data['year'].max() - data['year'].min()
     # limit plot to the N years during which we follow a cohort
     cohort_duration = np.arange(max_years)
 
@@ -74,7 +61,7 @@ def plot_cohort_analysis_on(data, criterion, group_year, isCumulative, criteria_
 
     for year in years: #[1975,1980,1985, 1990]: #
         #we cannot follow the cohort for max years; for 2016 we do not have enough data
-        if year > (2015 - max_years):
+        if year > (2015 - (max_years*step)):
             break
 
         ax5 = fig5.add_subplot(6, 6, i)
@@ -84,14 +71,14 @@ def plot_cohort_analysis_on(data, criterion, group_year, isCumulative, criteria_
         ax4 = fig4.add_subplot(1, 1, 1)
 
         #print("cohort: "+str(year))
-        cohort = data[data["group_start_year"]==year]
+        cohort = data[data["start_year"]==year]
         cohort_authors = cohort["author"].values
         #cohort_len.append({'expected_length' : len(cohort_authors), 'actual':[]})
 
         gini_over_years = pd.Series(data=0, index=years)
         cumnum_over_years = pd.DataFrame(data=0, index=years, 
                                          columns=["mean", "std", "mean_f", "std_f", "mean_m", "std_m", "mean_n", "std_n"])
-        
+
         subsequent_years = [yr for yr in years if yr >= year]
 
         # extract num publications/citations for the cohort in all future years
@@ -99,7 +86,7 @@ def plot_cohort_analysis_on(data, criterion, group_year, isCumulative, criteria_
             #print("following years: "+str(y))
 
             # get all the authors data for each year and filter based on the authors that we are interested in
-            temp = data[data["group_year"]==y]
+            temp = data[data["year"]==y]
             temp = temp[temp["author"].isin(cohort_authors)]
 
             temp_count = len(temp[criterion].astype("float").values)
@@ -132,7 +119,10 @@ def plot_cohort_analysis_on(data, criterion, group_year, isCumulative, criteria_
 
         gini_years = gini_years_df["year"].values
         gini_coefs= gini_years_df["gini"].values
-        selected_gini_df = gini_years_df[(gini_years_df["year"] >= year) &  (gini_years_df["year"] < (year+max_years))]
+        selected_gini_df = gini_years_df[(gini_years_df["year"] >= year) &  \
+                                         (gini_years_df["year"] < (year+(max_years*step)))]
+        #print(selected_gini_df)
+        #print(cohort_duration)
         ax2.plot(cohort_duration, selected_gini_df["gini"])
 
         #["mean", "std", "mean_f", "std_f", "mean_m", "std_m", "mean_n", "std_n"])
@@ -140,7 +130,8 @@ def plot_cohort_analysis_on(data, criterion, group_year, isCumulative, criteria_
         cumnum_years_df.columns = ["year", "mean", "std", "mean_f", "sem_f", "mean_m", "sem_m", "mean_n", "sem_n"]
         #cumnum_per_cohort[year] = cumnum_years_df
 
-        selected_cumnum_df = cumnum_years_df[(cumnum_years_df["year"] >= year) &  (cumnum_years_df["year"] < (year+max_years))]
+        selected_cumnum_df = cumnum_years_df[(cumnum_years_df["year"] >= year) &  \
+                                             (cumnum_years_df["year"] < (year+(max_years*step)))]
         ax3.errorbar(cohort_duration, selected_cumnum_df["mean"].values,  yerr=selected_cumnum_df["std"].values)
 
 
@@ -171,3 +162,5 @@ def plot_cohort_analysis_on(data, criterion, group_year, isCumulative, criteria_
     fig5.savefig("fig/"+criterion+"_gender.png")
 
     plt.show()
+    
+    
