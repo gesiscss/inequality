@@ -166,16 +166,16 @@ def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
     ax2.set_title('Inequality of al cohorts over '+str(max_years)+' years')
     if len(years)<10:
         ax2.legend(years)  
-    fig2.savefig("fig/"+criterion+"_gini.png")
+    fig2.savefig("fig/"+criterion+"_gini_over_"+str(max_years)+".png")
 
     ax3.set_ylabel(criteria_display)
     ax3.set_title('Mean/Std of al cohorts over '+str(max_years)+' years')
     if len(years)<10:
         ax3.legend(years)  
 
-    fig3.savefig("fig/"+criterion+".png")
+    fig3.savefig("fig/"+criterion+"_over_"+str(max_years)+".png")
 
-    fig5.savefig("fig/"+criterion+"_gender.png")
+    fig5.savefig("fig/"+criterion+"_gender_"+str(max_years)+".png")
 
     plt.show()
     
