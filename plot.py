@@ -4,28 +4,43 @@ import numpy as np
 import calculate
 import scipy.stats as stats
 from sklearn import linear_model
+import math
 
-def plot_gender_numcum(ax, cohort_duration, selected_cumnum_df, year):
-    ax.plot(cohort_duration, selected_cumnum_df["mean_f"].values,  label='women', color="red")
-    ax.fill_between(cohort_duration, selected_cumnum_df["mean_f"].values-selected_cumnum_df["sem_f"].values, 
-                    selected_cumnum_df["mean_f"].values+selected_cumnum_df["sem_f"].values,
-					alpha=0.2, edgecolor='red', facecolor='red',
-					linewidth=4, linestyle='dashdot', antialiased=True)
+
+# set global settings
+def init_plotting():
+    #print(plt.style.available)
+    #plt.style.use(['seaborn-paper'])
+    plt.rcParams.update({'figure.autolayout': True})
+    plt.rcParams['font.size'] = 13
+    plt.style.use(['seaborn-whitegrid'])
+    #plt.rcParams['figure.figsize'] = (8, 3)
+    #plt.gca().spines['right'].set_color('none')
+    #plt.gca().spines['top'].set_color('none')
+    #plt.gca().xaxis.set_ticks_position('bottom')
+    #plt.gca().yaxis.set_ticks_position('left')
+    plt.rcParams['font.size'] = 13
+    plt.rcParams['font.family'] = 'Times New Roman'
+    plt.rcParams['axes.labelsize'] = plt.rcParams['font.size']
+    plt.rcParams['axes.titlesize'] = 1.5*plt.rcParams['font.size']
+    plt.rcParams['legend.fontsize'] = plt.rcParams['font.size']
+    plt.rcParams['xtick.labelsize'] = plt.rcParams['font.size']
+    plt.rcParams['ytick.labelsize'] = plt.rcParams['font.size']
+    #plt.rcParams['savefig.dpi'] = 2*plt.rcParams['savefig.dpi']
+    plt.rcParams['xtick.major.size'] = 4
+    plt.rcParams['xtick.minor.size'] = 4
+    plt.rcParams['xtick.major.width'] = 1
+    plt.rcParams['xtick.minor.width'] = 1
+    plt.rcParams['ytick.major.size'] = 4
+    plt.rcParams['ytick.minor.size'] = 4
+    plt.rcParams['ytick.major.width'] = 1
+    plt.rcParams['ytick.minor.width'] = 1
+    plt.rcParams['legend.frameon'] = False
+    plt.rcParams['legend.loc'] = 'upper left'
+    plt.rcParams['axes.linewidth'] = 2
+
     
-    ax.plot(cohort_duration, selected_cumnum_df["mean_m"].values,  label='men', color="blue")
-    ax.fill_between(cohort_duration, selected_cumnum_df["mean_m"].values-selected_cumnum_df["sem_m"].values, 
-                    selected_cumnum_df["mean_m"].values+selected_cumnum_df["sem_m"].values,
-					alpha=0.2, edgecolor='blue', facecolor='blue',
-					linewidth=4, linestyle='dashdot', antialiased=True)
 
-    ax.plot(cohort_duration, selected_cumnum_df["mean_n"].values,  label='unknown', color="grey")
-    ax.fill_between(cohort_duration, selected_cumnum_df["mean_n"].values-selected_cumnum_df["sem_n"].values, 
-                    selected_cumnum_df["mean_n"].values+selected_cumnum_df["sem_n"].values,
-					alpha=0.2, edgecolor='grey', facecolor='grey',
-					linewidth=4, linestyle='dashdot', antialiased=True) 
-    return ax
-	
-	
 def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
     # data - the dataframe containing author publications or citations data
     # criterion - 'cum_num_pub' (or) 'cum_num_cit' (or) 'num_pub' (or) 'num_cit'
@@ -33,62 +48,101 @@ def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
     # max_years - no. of years the analysis need to be carried out
     # criteria_display - 'Cumulative Publication Count' (or) 'Cumulative Citation Count'
     
+    init_plotting()
+    
     # get the years data - 
-    years = data['year'].unique() 
-    years = sorted(years)
+    all_years = data['year'].unique() 
+    all_years = sorted(all_years)
     
+    # FIXXXXXXXX ---> this should become a parameter
+    # we manually want to set the number of years or use all years as default
+    #years = [1973,1978,1983,1988, 1993]
+    years = all_years
+       
     #if years are grouped then get the step limit
-    step = years[1] - years[0]
-    
+    #FIXXXXXXXXX --> this only works if step=1
+    #step = years[1] - years[0]   --> this should work but does not
+    step = all_years[1] - all_years[0]
+       
     gini_per_cohort = pd.DataFrame(index=years)
     cumnum_per_cohort = pd.DataFrame(index=years)
 
     fig2 = plt.figure()
-    ax2 = fig2.add_subplot(1,1,1)
+    fig2.patch.set_facecolor('white')
+    ax2 = fig2.add_subplot(1,1,1) #axisbg="white"
+    
     fig3 = plt.figure()
-    ax3 = fig3.add_subplot(1,1,1)
+    fig3.patch.set_facecolor('white')
+    ax3 = fig3.add_subplot(1,1,1) #, axisbg="white"
 
     # limit plot to the N years during which we follow a cohort
     cohort_duration = np.arange(max_years)
 
-    fig5 = plt.figure(figsize=(40,20))
+   
+    i=0 # to point to the right figure
+    j=0
+    cohort_size_gini = pd.DataFrame(columns=["cohort_start_year", "cohort_size", "year", "gini"])
 
-    i=1 # to point to the right figure
-    
-    
     # For each cohort, iterate all their careers and calculate the inequality of productivity (publications)
     # or success (citations)
+    
+     # rearange subplots dynamically
+    cols=2
+    
+    # FIXXXXX --> Kandy had 2016-max_years*step as criterion. No idea why?
+    # if we use 2015 we have exactly 30 cohorts which nicely fits on a 5x6 plot
+    cohort_start_years = [y for y in years if y < (2015 - max_years)]
+    print(cohort_start_years)
+    
+    if(len(cohort_start_years)>10):
+        cols=6
+        
+    nrows = math.ceil(len(cohort_start_years)/cols)
+    
+    fig5, ax5 = plt.subplots(nrows, cols, sharex=True, sharey='row', figsize=(16,10)) #sharey=True, 
+    #plt.ylim(0, 4)
+    # Create a big subplot to created axis labels that scale with figure size
+    ax_outside = fig5.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+    ax_outside.set_xlabel('Career Age', labelpad=10) 
+    ax_outside.set_ylabel('Mean '+criteria_display, labelpad=20)
 
-    for year in years: #[1975,1980,1985, 1990] - if step size is 5: #
-        #we cannot follow the cohort for max years; for 2016 we do not have enough data
-        if year > (2015 - (max_years*step)):
-            break
-
-        ax5 = fig5.add_subplot(6, 6, i)
-        i = i+1
-
-        fig4 = plt.figure()
-        ax4 = fig4.add_subplot(1, 1, 1)
+    plt.tight_layout() 
+    #fig5.text(0.5, 0.01, 'Career Age', ha='center')
+    #fig5.text(0.01, 0.5, 'Mean '+criteria_display, va='center', rotation='vertical')
+   
+    #fig6, ax6 = plt.subplots(nrows, cols, sharex=True, sharey=True, figsize=(18,18))
+    #plt.ylim(-1, 2)
+    #plt.tight_layout() 
+    #fig6.text(0.5, 0.09, 'Career Age', ha='center')
+    #fig6.text(0.09, 0.5, 'Median '+criteria_display, va='center', rotation='vertical')
+    
+    for year in cohort_start_years: 
+       
+        #fig4 = plt.figure()
+        #ax4 = fig4.add_subplot(1, 1, 1)
         
         #get the cohort names
-
         cohort = data[data["start_year"]==year]
         cohort_authors = cohort["author"].values
-        
+        cohort_size  = len(cohort_authors)
+       
+     
         #It is used to maintain previous values in cumulative calculations otherwise 0
         df_values = pd.DataFrame(cohort[['author', 'gender']])
         df_values['prev_value'] = [0]* df_values.shape[0]
 
         gini_over_years = pd.Series(data=0, index=years)
         cumnum_over_years = pd.DataFrame(data=0, index=years, \
-                                         columns=["mean", "std", "mean_f", "std_f", "mean_m", "std_m", "mean_n", "std_n"])
+                                         columns=["mean", "std", "mean_f", "median_f", "std_f", "mean_m", "median_m", "std_m", "mean_n", "median_n", "std_n"])
 
-        subsequent_years = [yr for yr in years if yr >= year]
-
+        subsequent_years = [yr for yr in all_years if yr >= year]
+        
+       
         # extract num publications/citations for the cohort in all future years
         for y in subsequent_years:
-            #print("following years: "+str(y))
-
+            
             # get all the authors data for each year and filter based on the authors that we are interested in
             temp = data[data["year"]==y]
             temp = temp[temp["author"].isin(cohort_authors)]
@@ -108,7 +162,8 @@ def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
             if temp_count > 0:
                 # gini per year based on cumulative num of publications/citations of all authors in this year
                 gini_over_years.loc[y] = calculate.gini(temp[criterion].astype("float").values)
-                #cohort_len[len(cohort_len)-1]['actual'].append(temp[criterion].values.shape[0])
+               
+                      #cohort_len[len(cohort_len)-1]['actual'].append(temp[criterion].values.shape[0])
                 #print(temp[criterion].astype("float").values.)
 
                 temp_male = df_values[df_values["gender"]=="m"]
@@ -116,18 +171,24 @@ def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
                 temp_none = df_values[df_values["gender"]=="none"]
 
                 cumnum_over_years.loc[y] = [np.mean(df_values[criterion].astype("float").values), 
-                                               np.std(df_values[criterion].astype("float").values),
+                                               stats.sem(df_values[criterion].astype("float").values),
                                                np.mean(temp_female[criterion].astype("float").values), 
+                                               np.median(temp_female[criterion].astype("float").values), 
                                                stats.sem(temp_female[criterion].astype("float").values),
                                                np.mean(temp_male[criterion].astype("float").values), 
+                                               np.median(temp_male[criterion].astype("float").values), 
                                                stats.sem(temp_male[criterion].astype("float").values),
                                                np.mean(temp_none[criterion].astype("float").values), 
+                                               np.median(temp_none[criterion].astype("float").values), 
                                                stats.sem(temp_none[criterion].astype("float").values)]
             else:
-                gini_over_years.loc[y] = 0
-                cumnum_over_years.loc[y] = [0, 0, 0, 0, 0, 0, 0, 0]
-                
-            #print(df_values)
+                print("this should never happen right???? It's not good to set gini to zero if this happens since gini=0 means no inequality. Here no values for gini calculation found!!!!!!!!!!!!!!!!!!!")
+                gini_over_years.loc[y] = np.nan
+                cumnum_over_years.loc[y] = [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
+               
+        
+            cohort_size_gini = cohort_size_gini.append( pd.DataFrame([[year, cohort_size, y, gini_over_years[y]]], 
+                                 columns=["cohort_start_year", "cohort_size", "year", "gini"]), ignore_index =True)  
             # maintain only author and prev_value for calculations    
             df_values = df_values[['author','gender','prev_value']]
             
@@ -135,6 +196,7 @@ def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
 
         gini_years_df = pd.DataFrame(gini_over_years.reset_index())
         gini_years_df.columns = ["year", "gini"]
+     
         #gini_per_cohort[year] = gini_years_df
 
         gini_years = gini_years_df["year"].values
@@ -146,44 +208,172 @@ def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
 
         #["mean", "std", "mean_f", "std_f", "mean_m", "std_m", "mean_n", "std_n"])
         cumnum_years_df = pd.DataFrame(cumnum_over_years.reset_index())
-        cumnum_years_df.columns = ["year", "mean", "std", "mean_f", "sem_f", "mean_m", "sem_m", "mean_n", "sem_n"]
+        cumnum_years_df.columns = ["year", "mean", "std", "mean_f", "median_f", "sem_f", "mean_m", "median_m", "sem_m", 
+                                   "mean_n", "median_n", "sem_n"]
 
         selected_cumnum_df = cumnum_years_df[(cumnum_years_df["year"] >= year) &  \
                                              (cumnum_years_df["year"] < (year+(max_years*step)))]
         ax3.errorbar(cohort_duration, selected_cumnum_df["mean"].values,  yerr=selected_cumnum_df["std"].values)
-
-
-        ax4 = plot_gender_numcum(ax4, cohort_duration, selected_cumnum_df, year)
-        ax4.set_title("Cohort start-year: "+str(year))  
-        ax4.set_ylabel(criteria_display)
-        ax4.legend()
-        fig4.savefig("fig/"+criterion+"_gender_"+str(year)+".png")
-
-        ax5 = plot_gender_numcum(ax5, cohort_duration, selected_cumnum_df, year)
-        ax5.set_title("Cohort start-year: "+str(year))
+        #ax3.fill_between(cohort_duration, selected_cumnum_df["mean"].values-selected_cumnum_df["std"].values, 
+        #            selected_cumnum_df["mean"].values+selected_cumnum_df["std"].values,
+	#				alpha=0.2, 
+	#				linewidth=4, linestyle='dashdot', antialiased=True) 
         
-    ax2.set_ylabel('Gini')
-    ax2.set_title('Inequality of al cohorts over '+str(max_years)+' years')
+
+        #ax4 = plot.plot_gender_numcum(ax4, cohort_duration, selected_cumnum_df, year)
+        #ax4.set_title("Cohort start-year: "+str(year))  
+        #ax4.set_ylabel(criteria_display)
+        #ax4.set_ylabel('Career Age')
+        #ax4.legend()
+        #fig4.savefig("fig/"+criterion+"_gender_"+str(year)+".png")
+        
+        #ax6[i,j] = plot_gender_numcum(ax6[i,j], cohort_duration, selected_cumnum_df, year, "median")
+        #ymin, ymax = ax6[i,j].get_ylim()
+        #ax6[i,j].text(0, 0.75, str(year))
+    
+        ax5[i,j] = plot_gender_numcum(ax5[i,j], cohort_duration, selected_cumnum_df, year, "mean")
+        #ymin, ymax = ax5[i,j].get_ylim()
+        ax5[i,j].text(11, 0.01, str(year))
+    
+        if (j<cols-1):
+            j = j+1
+        else:
+            j=0
+            i = i+1
+        #ax5.set_title("Cohort start-year: "+str(year))
+        
+   
+    # save gini results for cohort
+    cohort_size_gini.to_csv("fig/gini_"+criterion+"_results.csv")
+    plot_cohort_size_gini_cor(cohort_size_gini, criterion, max_years, criteria_display)
+    
+    ax2.set_ylabel('Gini ('+criteria_display+')')
+    ax2.set_xlabel('Career Age')
+
+    #ax2.set_title('Inequality of al cohorts over '+str(max_years)+' years')
     if len(years)<10:
         ax2.legend(years)  
-    fig2.savefig("fig/"+criterion+"_gini_over_"+str(max_years)+".png")
+    fig2.savefig("fig/gini_"+criterion+".png", facecolor=fig2.get_facecolor(), edgecolor='none', bbox_inches='tight')
 
-    ax3.set_ylabel(criteria_display)
-    ax3.set_title('Mean/Std of al cohorts over '+str(max_years)+' years')
+    ax3.set_ylabel("Mean "+criteria_display)
+    ax3.set_xlabel('Career Age')
+   
+    #ax3.set_title('Mean/Std of al cohorts over '+str(max_years)+' years')
     if len(years)<10:
         ax3.legend(years)  
 
-    fig3.savefig("fig/"+criterion+"_over_"+str(max_years)+".png")
-
-    fig5.savefig("fig/"+criterion+"_gender_"+str(max_years)+".png")
-
+    fig3.savefig("fig/mean_"+criterion+".png", facecolor=fig3.get_facecolor(), edgecolor='none', bbox_inches='tight')
+    fig5.savefig("fig/mean_"+criterion+"_gender.png", facecolor=fig5.get_facecolor(), edgecolor='none', bbox_inches='tight')
+    #fig6.savefig("fig/"+criterion+"_median_gender_"+str(max_years)+".png", facecolor=fig6.get_facecolor(), edgecolor='none')
+    plt.tight_layout()
     plt.show()
+    plt.close(fig2)
+    plt.close(fig3)
+    plt.close(fig5)
+    
+    
+def plot_cohort_size_gini_cor(data, criterion, max_years, criteria_display):
+    # data - the dataframe containing cohort-start-year, cohort-size, year, gini
+    # criterion - 'cum_num_pub' (or) 'cum_num_cit' (or) 'num_pub' (or) 'num_cit'
+      # If you are referring to cumulative values then the name should start with 'cum_'
+    # max_years - no. of years the analysis need to be carried out
+    # criteria_display - 'Cumulative Publication Count' (or) 'Cumulative Citation Count'
+    res = pd.DataFrame(columns=["career_age", "cor", "p", "num_obs"])
+    
+    # transfor subsequent year into 0-15
+    data["career_age"] = data["year"]  - data["cohort_start_year"] 
+    print(data.head())
+    
+    #fig = plt.figure(figsize=(16,10))
+    #ax.set_xlabel("cohort size")
+    #ax.set_ylabel("Gini")
+    
+    if(max_years >= 15):
+        cols = 5
+    else:
+        cols = 3   
+    nrows = math.ceil(max_years/float(cols))
+    
+    fig, ax = plt.subplots(nrows=nrows, ncols=cols, sharex=True, sharey=True, figsize=(16,10))
+    # Create a big subplot to created axis labels that scale with figure size
+    ax_outside = fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+    ax_outside.set_xlabel('Cohort Size', labelpad=18) 
+    ax_outside.set_ylabel('Gini ('+criteria_display+')', labelpad=20)
+
+    #fig.text(0.5, 0.0, 'Cohort Size', ha='center')
+    #fig.text(0.0, 0.5, 'Gini ('+criteria_display+')', va='center', rotation='vertical')
+    
+    plt.tight_layout()
+       
+    unique_career_ages = np.unique(data["career_age"])
+    i=0
+    j=0
+    # get gini and cohort size data for each career age
+    for age in unique_career_ages:
+        temp = data[data["career_age"]==age]
+        pcor = stats.pearsonr(temp["cohort_size"], temp["gini"])
+        num_obs = len(temp["cohort_size"])
+        res = res.append(pd.DataFrame([[age, pcor[0], pcor[1], num_obs]], columns=["career_age", "cor", "p", "num_obs"]), 
+                         ignore_index=True)
+        
+        if age < max_years:    
+            #ax1 = fig.add_subplot(nrows, cols, i)
+            ax[i,j].scatter(temp["cohort_size"], temp["gini"],  c="r", s=6)
+            m, b = np.polyfit(temp["cohort_size"], temp["gini"], 1)
+            ax[i,j].plot(temp["cohort_size"], m*temp["cohort_size"] + b, '-')
+            ax[i,j].set_title("Carrer Age: "+str(age), fontsize=12)
+            #ymin, ymax = ax[i,j].get_ylim()
+            ax[i,j].text(0.001, 0.06, "cor="+str(np.around(pcor[0], decimals=2))+" p="+str(np.around(pcor[1],decimals=3)))
+            labels =  ax[i,j].get_xticklabels()
+            plt.setp(labels, rotation=45, fontsize=12)
+
+            if (j < cols-1):
+                j = j+1
+            else:
+                j=0
+                i = i+1
+            
+        
+    res.to_csv("fig/cor_cohortSize_gini_"+criterion+".csv")
+    fig.show()
+  
+    fig.savefig("fig/cor_cohortSize_gini_"+criterion+".png", facecolor=fig.get_facecolor(), edgecolor='none', bbox_inches='tight')
+    #plt.close(fig)
+    
+def plot_gender_numcum(ax, cohort_duration, selected_cumnum_df, year, selected_stat):
+    init_plotting()
+    ax.plot(cohort_duration, selected_cumnum_df[selected_stat+"_f"].values,  label='women', color="red")
+    if (selected_stat == "mean"):
+        ax.fill_between(cohort_duration, selected_cumnum_df["mean_f"].values-selected_cumnum_df["sem_f"].values, 
+                    selected_cumnum_df["mean_f"].values+selected_cumnum_df["sem_f"].values,
+					alpha=0.2, edgecolor='red', facecolor='red',
+					linewidth=4, linestyle='dashdot', antialiased=True)
+    
+    ax.plot(cohort_duration, selected_cumnum_df[selected_stat+"_m"].values,  label='men', color="blue")
+    if(selected_stat == "mean"):
+        ax.fill_between(cohort_duration, selected_cumnum_df["mean_m"].values-selected_cumnum_df["sem_m"].values, 
+                    selected_cumnum_df["mean_m"].values+selected_cumnum_df["sem_m"].values,
+					alpha=0.2, edgecolor='blue', facecolor='blue',
+					linewidth=4, linestyle='dashdot', antialiased=True)
+
+    ax.plot(cohort_duration, selected_cumnum_df[selected_stat+"_n"].values,  label='unknown', color="grey")
+    if(selected_stat == "mean"):
+        ax.fill_between(cohort_duration, selected_cumnum_df["mean_n"].values-selected_cumnum_df["sem_n"].values, 
+                    selected_cumnum_df["mean_n"].values+selected_cumnum_df["sem_n"].values,
+					alpha=0.2, edgecolor='grey', facecolor='grey',
+					linewidth=4, linestyle='dashdot', antialiased=True) 
+    return ax
+	
+	
+
+
     
 def plot_regress_performance_on_inequality(data, criterion, max_years):
     # data - the dataframe containing author publications or citations data
     # criterion - 'cum_num_pub' (or) 'cum_num_cit' (or) 'num_pub' (or) 'num_cit'
     # max_years - no. of years the analysis need to be carried out
-    
     years = data['year'].unique() 
     years = sorted(years)
     #print(years)
