@@ -33,8 +33,15 @@ def groupDataAndCalculateCumulativeValues(data, group_year, criterion):
     # Group years and associative data and calculates the cumulative value
     if group_year > 1:
         min_year = data['year'].min() 
-        max_year = data['year'].max() + 2*group_year
+        # the final year was getting missed out from grouping. Inorder to avoid that the max year is extended by one group year
+        # pd.cut() function groups the years and allows the user to assign labels to each group. 
+        # It is designed in such a way that it was by default leaving the label for the last group. In order to fix this issue, 
+        # an extra bin is added to the last, so that, the second last (which is the actual last with respect to this context) is preserved
+        
+        # this max_year is used only for grouping - so no worries :-)
+        max_year = data['year'].max() + 2*group_year 
         yearGroups = range(min_year, max_year, group_year)
+        
         #bins - contains the year groups and labels contains all the group except the last one
         data['year'] = pd.cut(data['year'], bins=yearGroups, labels=yearGroups[:-1],\
                                                include_lowest=True, right=False)
@@ -56,7 +63,7 @@ def groupDataAndCalculateCumulativeValues(data, group_year, criterion):
         print("data with null values: %s", data.shape[0])
         data = data.dropna(how='any')
         print("data without null values: %s", data.shape[0])
-
+        
     #Sort the year and calculate the cumulative values
 
     data = data.set_index('year').sort_index()

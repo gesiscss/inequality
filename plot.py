@@ -135,7 +135,8 @@ def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
 
         gini_over_years = pd.Series(data=0, index=years)
         cumnum_over_years = pd.DataFrame(data=0, index=years, \
-                                         columns=["mean", "std", "mean_f", "median_f", "std_f", "mean_m", "median_m", "std_m", "mean_n", "median_n", "std_n"])
+                                         columns=["mean", "std", "mean_f", "median_f", "std_f", "mean_m", "median_m", \
+                                                  "std_m", "mean_n", "median_n", "std_n"])
 
         subsequent_years = [yr for yr in all_years if yr >= year]
         
@@ -202,8 +203,14 @@ def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
         gini_years = gini_years_df["year"].values
         gini_coefs= gini_years_df["gini"].values
         selected_gini_df = gini_years_df[(gini_years_df["year"] >= year) &  \
-                                         (gini_years_df["year"] < (year+(max_years*step)))]
-
+                                         (gini_years_df["year"] < (year+max_years))]
+        
+        # limit plot to the N years during which we follow a cohort
+        #the length of cohort duration (x-axis) and y-axis values have to be the same
+        # faced by some problems regarding that because of grouping and so, the x-axis count values are taken from the final table
+        # say for e.g. when grouped by 2 years the values will be 0,2,4,6 ...
+        cohort_duration = np.arange(0,len(selected_gini_df["gini"].values)*step, step)
+        
         ax2.plot(cohort_duration, selected_gini_df["gini"])
 
         #["mean", "std", "mean_f", "std_f", "mean_m", "std_m", "mean_n", "std_n"])
@@ -212,7 +219,7 @@ def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
                                    "mean_n", "median_n", "sem_n"]
 
         selected_cumnum_df = cumnum_years_df[(cumnum_years_df["year"] >= year) &  \
-                                             (cumnum_years_df["year"] < (year+(max_years*step)))]
+                                             (cumnum_years_df["year"] < (year+max_years))]
         ax3.errorbar(cohort_duration, selected_cumnum_df["mean"].values,  yerr=selected_cumnum_df["std"].values)
         #ax3.fill_between(cohort_duration, selected_cumnum_df["mean"].values-selected_cumnum_df["std"].values, 
         #            selected_cumnum_df["mean"].values+selected_cumnum_df["std"].values,
@@ -381,12 +388,12 @@ def plot_regress_performance_on_inequality(data, criterion, max_years):
     step = years[1] - years[0]
     #print(step)
     
-    analysis_output = pd.DataFrame(columns=['year','intercept','reg_coeff','error'])
+    analysis_output = pd.DataFrame(columns=['year','intercept','reg_coeff','residue'])
     
     # For each cohort, go through all their careers years and calculate the mean and GINI
     for year in years: 
         #we cannot follow the cohort for max years; for 2016 we do not have enough data
-        if year > (2015 - (max_years*step)):
+        if year > (2015 - max_years):
             #print('I am breaking - ', year)
             break
             
@@ -441,28 +448,21 @@ def plot_regress_performance_on_inequality(data, criterion, max_years):
         analysis_output = analysis_output.append({'year':year, \
                                 'intercept':regr.intercept_[0], \
                                 'reg_coeff':regr.coef_[0][0], \
-                                'error':regr.residues_[0]}, \
+                                'residue':regr.residues_[0]}, \
                                 ignore_index=True)
         
     # plot the regression analysis
-    fig = plt.figure(figsize=(20,5))
+    fig = plt.figure(figsize=(15,5))
     fig.suptitle('Regression Analysis of cohort performance on their inequality ')
-    ax1 = fig.add_subplot(1,3,1)
-    ax2 = fig.add_subplot(1,3,2)
-    ax3 = fig.add_subplot(1,3,3)
-
-    ax1.plot(analysis_output['year'],analysis_output['intercept'])
-    ax1.set_xlabel('Year that cohort started')
-    ax1.set_ylabel('Intercept')
-
-    ax2.plot(analysis_output['year'],analysis_output['reg_coeff'])
-    ax2.set_xlabel('Year that cohort started')
-    ax2.set_ylabel('Reg. coefficient -b1')
-
-    ax3.plot(analysis_output['year'],analysis_output['error'])
-    ax3.set_xlabel('Year that cohort started')
-    ax3.set_ylabel('Error')
+    ax1 = fig.add_subplot(1,1,1)
     
+
+    ax1.plot(analysis_output['year'],analysis_output['intercept'],label='Intercept')
+    ax1.plot(analysis_output['year'],analysis_output['reg_coeff'],label='Reg. coefficient -b1')
+    ax1.plot(analysis_output['year'],analysis_output['residue'],label='Residue')
+    ax1.set_xlabel('Year that cohort started')
+    ax1.legend()
+
     fig.savefig("fig/regress_"+criterion+"_gini.png")
     plt.show()
     
