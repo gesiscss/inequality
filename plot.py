@@ -5,6 +5,7 @@ import calculate
 import scipy.stats as stats
 from sklearn import linear_model
 import math
+import seaborn as sns
 
 
 # set global settings
@@ -13,7 +14,7 @@ def init_plotting():
     #plt.style.use(['seaborn-paper'])
     plt.rcParams.update({'figure.autolayout': True})
     plt.rcParams['font.size'] = 13
-    plt.style.use(['seaborn-whitegrid'])
+    #plt.style.use(['seaborn-whitegrid'])
     #plt.rcParams['figure.figsize'] = (8, 3)
     #plt.gca().spines['right'].set_color('none')
     #plt.gca().spines['top'].set_color('none')
@@ -41,7 +42,7 @@ def init_plotting():
 
     
 
-def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
+def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display):
     # data - the dataframe containing author publications or citations data
     # criterion - 'cum_num_pub' (or) 'cum_num_cit' (or) 'num_pub' (or) 'num_cit'
       # If you are referring to cumulative values then the name should start with 'cum_'
@@ -50,19 +51,8 @@ def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
     
     init_plotting()
     
-    # get the years data - 
-    all_years = data['year'].unique() 
-    all_years = sorted(all_years)
-    
-    # FIXXXXXXXX ---> this should become a parameter
-    # we manually want to set the number of years or use all years as default
-    #years = [1973,1978,1983,1988, 1993]
-    years = all_years
-       
     #if years are grouped then get the step limit
-    #FIXXXXXXXXX --> this only works if step=1
-    #step = years[1] - years[0]   --> this should work but does not
-    step = all_years[1] - all_years[0]
+    step = years[1] - years[0]
        
     gini_per_cohort = pd.DataFrame(index=years)
     cumnum_per_cohort = pd.DataFrame(index=years)
@@ -89,15 +79,14 @@ def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
      # rearange subplots dynamically
     cols=2
     
-    # FIXXXXX --> Kandy had 2016-max_years*step as criterion. No idea why?
     # if we use 2015 we have exactly 30 cohorts which nicely fits on a 5x6 plot
     cohort_start_years = [y for y in years if y < (2015 - max_years)]
     print(cohort_start_years)
     
     if(len(cohort_start_years)>10):
         cols=6
-        
-    nrows = math.ceil(len(cohort_start_years)/cols)
+    nrows = math.ceil(float(len(cohort_start_years))/float(cols))
+    nrows = int(nrows)
     
     fig5, ax5 = plt.subplots(nrows, cols, sharex=True, sharey='row', figsize=(16,10)) #sharey=True, 
     #plt.ylim(0, 4)
@@ -138,7 +127,7 @@ def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
                                          columns=["mean", "std", "mean_f", "median_f", "std_f", "mean_m", "median_m", \
                                                   "std_m", "mean_n", "median_n", "std_n"])
 
-        subsequent_years = [yr for yr in all_years if yr >= year]
+        subsequent_years = [yr for yr in years if yr >= year]
         
        
         # extract num publications/citations for the cohort in all future years
@@ -183,7 +172,12 @@ def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
                                                np.median(temp_none[criterion].astype("float").values), 
                                                stats.sem(temp_none[criterion].astype("float").values)]
             else:
-                print("this should never happen right???? It's not good to set gini to zero if this happens since gini=0 means no inequality. Here no values for gini calculation found!!!!!!!!!!!!!!!!!!!")
+                # If we use cumulative values then this should not happen.
+                # If publication and citation counts are used then it can happen that at one year for one cohort, depending
+                # on the credibility chosen none of the authors might have published or got citation
+                # In those cases, we subsitute GINI with NaN
+                
+                print("Here no values for gini calculation found!!!!!!!!!!!!!!!!!!!")
                 gini_over_years.loc[y] = np.nan
                 cumnum_over_years.loc[y] = [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
                
@@ -215,8 +209,8 @@ def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
 
         #["mean", "std", "mean_f", "std_f", "mean_m", "std_m", "mean_n", "std_n"])
         cumnum_years_df = pd.DataFrame(cumnum_over_years.reset_index())
-        cumnum_years_df.columns = ["year", "mean", "std", "mean_f", "median_f", "sem_f", "mean_m", "median_m", "sem_m", 
-                                   "mean_n", "median_n", "sem_n"]
+        cumnum_years_df.columns = ["year", "mean", "std", "mean_f", "median_f", "sem_f", \
+                                   "mean_m", "median_m", "sem_m", "mean_n", "median_n", "sem_n"]
 
         selected_cumnum_df = cumnum_years_df[(cumnum_years_df["year"] >= year) &  \
                                              (cumnum_years_df["year"] < (year+max_years))]
@@ -237,7 +231,7 @@ def plot_cohort_analysis_on(data, criterion, max_years, criteria_display):
         #ax6[i,j] = plot_gender_numcum(ax6[i,j], cohort_duration, selected_cumnum_df, year, "median")
         #ymin, ymax = ax6[i,j].get_ylim()
         #ax6[i,j].text(0, 0.75, str(year))
-    
+ 
         ax5[i,j] = plot_gender_numcum(ax5[i,j], cohort_duration, selected_cumnum_df, year, "mean")
         #ymin, ymax = ax5[i,j].get_ylim()
         ax5[i,j].text(11, 0.01, str(year))
@@ -299,7 +293,7 @@ def plot_cohort_size_gini_cor(data, criterion, max_years, criteria_display):
         cols = 5
     else:
         cols = 3   
-    nrows = math.ceil(max_years/float(cols))
+    nrows = int(math.ceil(float(max_years)/float(cols)))
     
     fig, ax = plt.subplots(nrows=nrows, ncols=cols, sharex=True, sharey=True, figsize=(16,10))
     # Create a big subplot to created axis labels that scale with figure size
@@ -377,13 +371,10 @@ def plot_gender_numcum(ax, cohort_duration, selected_cumnum_df, year, selected_s
 
 
     
-def plot_regress_performance_on_inequality(data, criterion, max_years):
+def plot_regress_performance_on_inequality(data, criterion, years, max_years):
     # data - the dataframe containing author publications or citations data
     # criterion - 'cum_num_pub' (or) 'cum_num_cit' (or) 'num_pub' (or) 'num_cit'
     # max_years - no. of years the analysis need to be carried out
-    years = data['year'].unique() 
-    years = sorted(years)
-    #print(years)
     
     step = years[1] - years[0]
     #print(step)
