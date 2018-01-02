@@ -14,7 +14,7 @@ def init_plotting():
     #plt.style.use(['seaborn-paper'])
     plt.rcParams.update({'figure.autolayout': True})
     plt.rcParams['font.size'] = 13
-    #plt.style.use(['seaborn-whitegrid'])
+    plt.style.use(['seaborn-whitegrid'])
     #plt.rcParams['figure.figsize'] = (8, 3)
     #plt.gca().spines['right'].set_color('none')
     #plt.gca().spines['top'].set_color('none')
