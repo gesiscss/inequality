@@ -43,6 +43,16 @@ def init_plotting():
     
 
 def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display):
+    
+    # Computes the GINI over publication/citation details for each cohort for each year and plots it
+    # It produces numerous plots - cumulative advantage analysis for all cohorts, mean publication tracking for all cohorts,
+    # mean publication for each cohort - gender wise comparison, correlation plot between cohort size and inequality
+    
+    # This analysis can be done year wise - for which we use cumulative values - inorder to avoid too many zeros
+    # otherwise it can be done in multiples of years - In this case we don't use cumulative values but the absolute ones 
+    # because the year duration is highly - most likely the authors will publish/get cited
+    ########### But for our analysis, we have used year wise and cumulative values. 
+    
     # data - the dataframe containing author publications or citations data
     # criterion - 'cum_num_pub' (or) 'cum_num_cit' (or) 'num_pub' (or) 'num_cit'
       # If you are referring to cumulative values then the name should start with 'cum_'
@@ -51,7 +61,7 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
     
     init_plotting()
     
-    #if years are grouped then get the step limit
+    #if years are grouped then get the step limit - infer the group
     step = years[1] - years[0]
        
     gini_per_cohort = pd.DataFrame(index=years)
@@ -67,15 +77,11 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
 
     # limit plot to the N years during which we follow a cohort
     cohort_duration = np.arange(max_years)
-
    
     i=0 # to point to the right figure
     j=0
     cohort_size_gini = pd.DataFrame(columns=["cohort_start_year", "cohort_size", "year", "gini"])
 
-    # For each cohort, iterate all their careers and calculate the inequality of productivity (publications)
-    # or success (citations)
-    
      # rearange subplots dynamically
     cols=2
     
@@ -89,7 +95,6 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
     nrows = int(nrows)
     
     fig5, ax5 = plt.subplots(nrows, cols, sharex=True, sharey='row', figsize=(16,10)) #sharey=True, 
-    #plt.ylim(0, 4)
     # Create a big subplot to created axis labels that scale with figure size
     ax_outside = fig5.add_subplot(111, frameon=False)
     # hide tick and tick label of the big axes
@@ -98,27 +103,18 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
     ax_outside.set_ylabel('Mean '+criteria_display, labelpad=20)
 
     plt.tight_layout() 
-    #fig5.text(0.5, 0.01, 'Career Age', ha='center')
-    #fig5.text(0.01, 0.5, 'Mean '+criteria_display, va='center', rotation='vertical')
    
-    #fig6, ax6 = plt.subplots(nrows, cols, sharex=True, sharey=True, figsize=(18,18))
-    #plt.ylim(-1, 2)
-    #plt.tight_layout() 
-    #fig6.text(0.5, 0.09, 'Career Age', ha='center')
-    #fig6.text(0.09, 0.5, 'Median '+criteria_display, va='center', rotation='vertical')
+    # For each cohort, iterate all their careers and calculate the inequality of productivity (publications)
+    # or success (citations)
     
     for year in cohort_start_years: 
        
-        #fig4 = plt.figure()
-        #ax4 = fig4.add_subplot(1, 1, 1)
-        
         #get the cohort names
         cohort = data[data["start_year"]==year]
         cohort_authors = cohort["author"].values
         cohort_size  = len(cohort_authors)
        
-     
-        #It is used to maintain previous values in cumulative calculations otherwise 0
+        #Maintain previous values in cumulative calculations otherwise 0
         df_values = pd.DataFrame(cohort[['author', 'gender']])
         df_values['prev_value'] = [0]* df_values.shape[0]
 
@@ -129,7 +125,6 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
 
         subsequent_years = [yr for yr in years if yr >= year]
         
-       
         # extract num publications/citations for the cohort in all future years
         for y in subsequent_years:
             
@@ -143,7 +138,7 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
             df_values[criterion] = df_values[criterion].combine_first(df_values['prev_value'])
 
             # If it is cumulative then previous values is set with current
-            # Otherwise previous value will always will be 0
+            # Otherwise previous value will always be 0
             if(criterion.startswith('cum_')) :
                 df_values['prev_value'] = df_values[criterion]
 
@@ -187,8 +182,6 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
             # maintain only author and prev_value for calculations    
             df_values = df_values[['author','gender','prev_value']]
             
-            
-
         gini_years_df = pd.DataFrame(gini_over_years.reset_index())
         gini_years_df.columns = ["year", "gini"]
      
@@ -219,21 +212,10 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
         #            selected_cumnum_df["mean"].values+selected_cumnum_df["std"].values,
 	#				alpha=0.2, 
 	#				linewidth=4, linestyle='dashdot', antialiased=True) 
+       
         
-
-        #ax4 = plot.plot_gender_numcum(ax4, cohort_duration, selected_cumnum_df, year)
-        #ax4.set_title("Cohort start-year: "+str(year))  
-        #ax4.set_ylabel(criteria_display)
-        #ax4.set_ylabel('Career Age')
-        #ax4.legend()
-        #fig4.savefig("fig/"+criterion+"_gender_"+str(year)+".png")
-        
-        #ax6[i,j] = plot_gender_numcum(ax6[i,j], cohort_duration, selected_cumnum_df, year, "median")
-        #ymin, ymax = ax6[i,j].get_ylim()
-        #ax6[i,j].text(0, 0.75, str(year))
- 
+        ## plots the mean of publication/citation gender wise for each cohort
         ax5[i,j] = plot_gender_numcum(ax5[i,j], cohort_duration, selected_cumnum_df, year, "mean")
-        #ymin, ymax = ax5[i,j].get_ylim()
         ax5[i,j].text(11, 0.01, str(year))
     
         if (j<cols-1):
@@ -241,11 +223,11 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
         else:
             j=0
             i = i+1
-        #ax5.set_title("Cohort start-year: "+str(year))
-        
-   
+ 
     # save gini results for cohort
     cohort_size_gini.to_csv("fig/gini_"+criterion+"_results.csv")
+    
+    ## plots the correlation plot between gini and cohort size
     plot_cohort_size_gini_cor(cohort_size_gini, criterion, max_years, criteria_display)
     
     ax2.set_ylabel('Gini ('+criteria_display+')')
@@ -265,7 +247,7 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
 
     fig3.savefig("fig/mean_"+criterion+".png", facecolor=fig3.get_facecolor(), edgecolor='none', bbox_inches='tight')
     fig5.savefig("fig/mean_"+criterion+"_gender.png", facecolor=fig5.get_facecolor(), edgecolor='none', bbox_inches='tight')
-    #fig6.savefig("fig/"+criterion+"_median_gender_"+str(max_years)+".png", facecolor=fig6.get_facecolor(), edgecolor='none')
+    
     plt.tight_layout()
     plt.show()
     plt.close(fig2)
@@ -274,6 +256,10 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
     
     
 def plot_cohort_size_gini_cor(data, criterion, max_years, criteria_display):
+    
+    # It computes the correlation between cohort size and gini for all cohorts at every career age
+    # and plots it for each career age 
+    
     # data - the dataframe containing cohort-start-year, cohort-size, year, gini
     # criterion - 'cum_num_pub' (or) 'cum_num_cit' (or) 'num_pub' (or) 'num_cit'
       # If you are referring to cumulative values then the name should start with 'cum_'
@@ -372,6 +358,7 @@ def plot_gender_numcum(ax, cohort_duration, selected_cumnum_df, year, selected_s
 
     
 def plot_regress_performance_on_inequality(data, criterion, years, max_years):
+    
     # data - the dataframe containing author publications or citations data
     # criterion - 'cum_num_pub' (or) 'cum_num_cit' (or) 'num_pub' (or) 'num_cit'
     # max_years - no. of years the analysis need to be carried out
@@ -461,11 +448,19 @@ def plot_regress_performance_on_inequality(data, criterion, years, max_years):
     return analysis_output
 
 
+
 def plot_cohort_participation_year_wise_for(authorScientificYearStartEnd, data, CAREER_LENGTH_LIST):
+    
+    # This produces a range of plots for each career specified in CAREER_LENGTH_LIST. Each plot will compare the fraction/number
+    # of authors for each year cohort wise
+    # one set of plots will refer to the fraction of authors whose career span is greater than specified and 
+    # the other will specify the absolute number
+    
     # authorScientificYearStartEnd - author start year, end year, publication count details
     # data - the dataframe containing author publications or citations data
-    # CAREER_LENGTH_LIST - 
+    # CAREER_LENGTH_LIST - this is used to filter data based on their career span
     
+    # infer the grouping from data itself and if so calculate the step
     group_years = data['year'].unique()
     group_years = sorted(group_years)
     
@@ -499,11 +494,11 @@ def plot_cohort_participation_year_wise_for(authorScientificYearStartEnd, data, 
             len_authors = float(len(cohort_authors_with_credibility))
 
             subsequent_years = [yr for yr in group_years if yr >= year]
+            #ca - career age
             ca = 1
             if len_authors > 0:
                 # For that cohort - go through their career and see how many of them have published at every year
-                #ca - career age
-
+                
                 for sub_yr in  subsequent_years:
                     temp = data[data['year'] == sub_yr]
                     #temp = temp[temp['author'].isin(cohort_authors_with_credibility)]

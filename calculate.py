@@ -3,12 +3,14 @@
 import numpy  as np
 import pandas as pd
 def gini(array):
+    
     #"""Calculate the Gini coefficient of a numpy array."""
     # based on bottom eq:
     # http://www.statsdirect.com/help/generatedimages/equations/equation154.svg
     # from:
     # http://www.statsdirect.com/help/default.htm#nonparametric_methods/gini.htm
     # All values are treated equally, arrays must be 1d:
+    
     array = array.flatten()
     if np.min(array) < 0:
         # Values cannot be negative:
@@ -26,6 +28,11 @@ def gini(array):
 
 
 def groupDataAndCalculateCumulativeValues(data, group_year, criterion):
+    
+    # Analysis of performance or recognition need not be done only year wise.
+    # It can be done in multiples of year - which sometimes makes sense
+    # This function helps to group author based on the year passed and accumulates their performance/recognition accordingly
+    
     # data - the dataframe containing author publications or citations data
     # group_year - how many years should be clubbed to form
     # criterion - 'num_pub' (or) 'num_cit'
@@ -33,6 +40,7 @@ def groupDataAndCalculateCumulativeValues(data, group_year, criterion):
     # Group years and associative data and calculates the cumulative value
     if group_year > 1:
         min_year = data['year'].min() 
+        
         # the final year was getting missed out from grouping. Inorder to avoid that the max year is extended by one group year
         # pd.cut() function groups the years and allows the user to assign labels to each group. 
         # It is designed in such a way that it was by default leaving the label for the last group. In order to fix this issue, 
