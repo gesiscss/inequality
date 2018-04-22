@@ -6,27 +6,31 @@ import scipy.stats as stats
 from sklearn import linear_model
 import math
 import seaborn as sns
-
+from matplotlib.font_manager import FontProperties
 
 # set global settings
 def init_plotting():
     #print(plt.style.available)
     #plt.style.use(['seaborn-paper'])
     plt.rcParams.update({'figure.autolayout': True})
-    plt.rcParams['font.size'] = 15
+    plt.rcParams['font.size'] = 14
     plt.style.use(['seaborn-whitegrid'])
     #plt.rcParams['figure.figsize'] = (8, 3)
     #plt.gca().spines['right'].set_color('none')
     #plt.gca().spines['top'].set_color('none')
     #plt.gca().xaxis.set_ticks_position('bottom')
     #plt.gca().yaxis.set_ticks_position('left')
-    plt.rcParams['font.size'] = 15
-    plt.rcParams['font.family'] = 'Times New Roman'
+    #plt.rcParams['font.family'] = 'Times New Roman'
+    plt.rcParams['font.family'] = 'serif'
+    plt.rcParams['font.serif'] = 'Ubuntu'
+    plt.rcParams['font.monospace'] = 'Ubuntu Mono'
     plt.rcParams['axes.labelsize'] = plt.rcParams['font.size']
     plt.rcParams['axes.titlesize'] = 1.5*plt.rcParams['font.size']
     plt.rcParams['legend.fontsize'] = plt.rcParams['font.size']
     plt.rcParams['xtick.labelsize'] = plt.rcParams['font.size']
     plt.rcParams['ytick.labelsize'] = plt.rcParams['font.size']
+    #plt.rcParams["font.weight"] = "bold"
+    #plt.rcParams["axes.labelweight"] = "bold"
     #plt.rcParams['savefig.dpi'] = 2*plt.rcParams['savefig.dpi']
     plt.rcParams['xtick.major.size'] = 5
     plt.rcParams['xtick.minor.size'] = 5
@@ -38,7 +42,8 @@ def init_plotting():
     plt.rcParams['ytick.minor.width'] = 1
     plt.rcParams['legend.frameon'] = False
     plt.rcParams['legend.loc'] = 'upper left'
-    plt.rcParams['axes.linewidth'] = 3
+    plt.rcParams['axes.linewidth'] = 4
+    return plt
 
     
 
@@ -64,7 +69,7 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
     # max_years - no. of years the analysis need to be carried out
     # criteria_display - 'Cumulative Publication Count' (or) 'Cumulative Citation Count'
     
-    init_plotting()
+    plt = init_plotting()
     
     #if years are grouped then get the step limit - infer the group
     step = years[1] - years[0]
@@ -97,7 +102,7 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
     # if we use 2015 we have exactly 30 cohorts which nicely fits on a 5x6 plot
     cohort_start_years = [y for y in years if y < (2015 - max_years)]
     print(cohort_start_years)
-    
+    # 15 cohorts
     if(len(cohort_start_years)>10):
         cols=6
     nrows = math.ceil(float(len(cohort_start_years))/float(cols))
@@ -109,8 +114,8 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
     ax_outside = fig3.add_subplot(111, frameon=False)
     # hide tick and tick label of the big axes
     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
-    ax_outside.set_xlabel('Career Age', labelpad=10) 
-    ax_outside.set_ylabel('Mean '+criteria_display, labelpad=20)
+    ax_outside.set_xlabel('Career Age', labelpad=20, fontweight='bold') 
+    ax_outside.set_ylabel('Mean '+criteria_display, labelpad=20, fontweight='bold')
 
     plt.tight_layout() 
    
@@ -226,7 +231,11 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
         
         ## plots the mean of publication/citation gender wise for each cohort
         ax3[i,j] = plot_gender_numcum(ax3[i,j], cohort_duration, selected_cumnum_df, year, "mean")
-        ax3[i,j].text(11, 0.01, str(year))
+        ax3[i,j].set_title(str(year), fontsize=12, fontweight="bold")
+        #font0 = FontProperties()
+        #font = font0.copy()
+        #font.set_weight('bold')
+        #ax3[i,j].text(9, 1, str(year), fontproperties=font)
     
         if (j<cols-1):
             j = j+1
@@ -240,16 +249,16 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
     ## plots the correlation plot between gini and cohort size
     plot_cohort_size_gini_cor(cohort_size_gini, criterion, max_years, criteria_display)
     
-    ax1.set_ylabel('Gini ('+criteria_display+')')
-    ax1.set_xlabel('Career Age')
+    ax1.set_ylabel('Gini ('+criteria_display+')', fontweight='bold')
+    ax1.set_xlabel('Career Age', fontweight='bold')
 
     #ax1.set_title('Inequality of al cohorts over '+str(max_years)+' years')
     if len(years)<10:
         ax1.legend(years)  
     fig1.savefig("fig/gini_"+criterion+".png", facecolor=fig1.get_facecolor(), edgecolor='none', bbox_inches='tight')
 
-    ax2.set_ylabel("Mean "+criteria_display)
-    ax2.set_xlabel('Career Age')
+    ax2.set_ylabel("Mean "+criteria_display, fontweight='bold')
+    ax2.set_xlabel('Career Age', fontweight='bold')
    
     #ax2.set_title('Mean/Std of al cohorts over '+str(max_years)+' years')
     if len(years)<10:
@@ -276,6 +285,8 @@ def plot_cohort_size_gini_cor(data, criterion, max_years, criteria_display):
     # max_years - no. of years the analysis need to be carried out
     # criteria_display - 'Cumulative Publication Count' (or) 'Cumulative Citation Count'
     
+    #plt = init_plotting()
+    
     res_cor_size = pd.DataFrame(columns=["career_age", "cor", "p", "num_obs"])
     res_cor_year = pd.DataFrame(columns=["career_age", "cor", "p", "num_obs"])
     
@@ -295,18 +306,18 @@ def plot_cohort_size_gini_cor(data, criterion, max_years, criteria_display):
     nrows = int(math.ceil(float(max_years)/float(cols)))
     
     # (1) plot cor between cohort size and gini
-    #fig, ax = plt.subplots(nrows=nrows, ncols=cols, sharex=True, sharey=True, figsize=(16,10))
-    #ax_outside = fig.add_subplot(111, frameon=False)
-    #plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
-    #ax_outside.set_xlabel('Cohort Size', labelpad=18) 
-    #ax_outside.set_ylabel('Gini ('+criteria_display+')', labelpad=20)
+    fig, ax = plt.subplots(nrows=nrows, ncols=cols, sharex=True, sharey=True, figsize=(16,10))
+    ax_outside = fig.add_subplot(111, frameon=False)
+    plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+    ax_outside.set_xlabel('Cohort Size', labelpad=20, fontweight="bold") 
+    ax_outside.set_ylabel('Gini ('+criteria_display+')', labelpad=20, fontweight="bold")
     
     #(2) plot cor between cohort start year and gini
     fig2, ax2 = plt.subplots(nrows=nrows, ncols=cols, sharex=True, sharey=True, figsize=(16,10))
     ax_outside2 = fig2.add_subplot(111, frameon=False)
     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
-    ax_outside2.set_xlabel('Cohort Start Year', labelpad=18) 
-    ax_outside2.set_ylabel('Gini ('+criteria_display+')', labelpad=20)
+    ax_outside2.set_xlabel('Cohort Start Year', labelpad=20, fontweight="bold") 
+    ax_outside2.set_ylabel('Gini ('+criteria_display+')', labelpad=20, fontweight="bold")
 
     
     #fig.text(0.5, 0.0, 'Cohort Size', ha='center')
@@ -315,6 +326,7 @@ def plot_cohort_size_gini_cor(data, criterion, max_years, criteria_display):
     plt.tight_layout()
        
     unique_career_ages = np.unique(data["career_age"])
+    print(unique_career_ages)
     i=0
     j=0
     # get gini and cohort size data for each career age
@@ -331,26 +343,21 @@ def plot_cohort_size_gini_cor(data, criterion, max_years, criteria_display):
         if age < max_years:    
             #ax1 = fig.add_subplot(nrows, cols, i)
             
-            ax2[i,j].scatter(temp["ordered_cohort_start_year"], temp["gini"],  c="r", s=6)
-            m, b = np.polyfit(temp["ordered_cohort_start_year"], temp["gini"], 1)
-            ax2[i,j].plot(temp["ordered_cohort_start_year"], m*temp["ordered_cohort_start_year"] + b, '-')
-            ax2[i,j].set_title("Carrer Age: "+str(age), fontsize=12)
-            ax2[i,j].text(0.001, 0.06, "cor="+str(np.around(pcor2[0], decimals=2))+" p="+str(np.around(pcor2[1],decimals=3)))
+            ax2[i,j].scatter(temp["cohort_start_year"], temp["gini"],  c="r", s=6)
+            m, b = np.polyfit(temp["cohort_start_year"], temp["gini"], 1)
+            ax2[i,j].plot(temp["cohort_start_year"], m*temp["cohort_start_year"] + b, '-')
+            ax2[i,j].set_title("Age "+str(int(age))+" (c="+str(np.around(pcor2[0], decimals=2))+" p="+str(np.around(pcor2[1],decimals=3))+")", fontsize=12, fontweight="bold")
+            #ax2[i,j].text(1975, 0.16, "cor="+str(np.around(pcor2[0], decimals=2))+" p="+str(np.around(pcor2[1],decimals=2)))
             labels =  ax2[i,j].get_xticklabels()
-            print([item.get_text() for item in labels])
-            #labels = [float(item.get_text())+1970 for item in labels]
-            #print(labels)
-            #ax2[i,j].set_xticklabels(labels)
-            #plt.setp(labels, rotation=45, fontsize=12, figure=fig2)
             plt.setp(labels,  rotation=45, fontsize=12, figure=fig2)
 
-            #ax[i,j].scatter(temp["cohort_size"], temp["gini"],  c="r", s=6)
-            #m, b = np.polyfit(temp["cohort_size"], temp["gini"], 1)
-            #ax[i,j].plot(temp["cohort_size"], m*temp["cohort_size"] + b, '-')
-            #ax[i,j].set_title("Carrer Age: "+str(age), fontsize=12)
-            #ax[i,j].text(0.001, 0.06, "cor="+str(np.around(pcor[0], decimals=2))+" p="+str(np.around(pcor[1],decimals=3)))
-            #labels =  ax[i,j].get_xticklabels()
-            #plt.setp(labels, rotation=45, fontsize=12, figure=fig)
+            ax[i,j].scatter(temp["cohort_size"], temp["gini"],  c="r", s=6)
+            m, b = np.polyfit(temp["cohort_size"], temp["gini"], 1)
+            ax[i,j].plot(temp["cohort_size"], m*temp["cohort_size"] + b, '-')
+            ax[i,j].set_title("Age "+str(int(age))+" (c="+str(np.around(pcor[0], decimals=2))+" p="+str(np.around(pcor[1],decimals=3))+")", fontsize=12, fontweight="bold")
+            #ax[i,j].text(0.002, 0.16, "cor="+str(np.around(pcor[0], decimals=2))+" p="+str(np.around(pcor[1],decimals=2)))
+            labels =  ax[i,j].get_xticklabels()
+            plt.setp(labels, rotation=45, fontsize=12, figure=fig)
             
             if (j < cols-1):
                 j = j+1
@@ -360,8 +367,8 @@ def plot_cohort_size_gini_cor(data, criterion, max_years, criteria_display):
             
         
     res_cor_size.to_csv("fig/cor_cohortSize_gini_"+criterion+".csv")
-    #fig.show()
-    #fig.savefig("fig/cor_cohortSize_gini_"+criterion+".png", facecolor=fig.get_facecolor(), edgecolor='none', bbox_inches='tight')
+    fig.show()
+    fig.savefig("fig/cor_cohortSize_gini_"+criterion+".png", facecolor=fig.get_facecolor(), edgecolor='none', bbox_inches='tight')
     
     res_cor_year.to_csv("fig/cor_cohortStartYear_gini_"+criterion+".csv")
     fig2.show()
