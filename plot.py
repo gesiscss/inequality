@@ -79,10 +79,12 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
     #store for each cohort and year gini of cumulative publication and citationdistribution
     cumnum_per_cohort = pd.DataFrame(index=years)
 
-    #(1) gini of (cumulative) number of publications/citations for each cohort over time
+    #(1) fig1: gini of (cumulative) number of publications/citations for each cohort over time
     fig1 = plt.figure()
+    plt.ylim(0, 0.7)
     fig1.patch.set_facecolor('white')
     ax1 = fig1.add_subplot(1,1,1) #axisbg="white"
+    
     
     #(2) fig2: mean (cumulative) number of publications/citations for each cohort over time,
     fig2 = plt.figure()
