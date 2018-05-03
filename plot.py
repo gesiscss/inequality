@@ -67,10 +67,13 @@ def get_cohort_stats(data, start_year, max_years, criterion, cohort_size_gini):
     # gini_over_years: stored for each career age of one cohort the gini of the distr (pub, cit, cum pub, cum cit)
     # cohort_size_gini: stores cohort start yea, cohort size, career age and gini
     
+    f = open('fig/inactive_'+criterion+'.txt','w') 
+
+
     cohort = data[data["start_year"]==start_year]
     cohort_authors = cohort["author"].values
     cohort_size  = len(cohort_authors)
-    print("------------ COHORT START YEAR: "+str(start_year)+"  ---  size:"+str(cohort_size)) 
+    f.write("\n \n \n COHORT START YEAR: "+str(start_year)+"  ---  size:"+str(cohort_size)) 
     
     # Problem: authors who do not publish in y year dont show up
     # we need to set their value to 0 or to the value of previous year (for cumulative calculation)   
@@ -90,7 +93,7 @@ def get_cohort_stats(data, start_year, max_years, criterion, cohort_size_gini):
     # extract num publications/citations for the cohort in all future years
     for y in subsequent_years:
        
-        print("subsequent_year: "+str(y) )
+        f.write("\n subsequent_year: "+str(y) )
         
         temp = cohort[cohort["year"]==y]
         # size will show how many people received citatins or published papers in that year
@@ -128,7 +131,7 @@ def get_cohort_stats(data, start_year, max_years, criterion, cohort_size_gini):
             num_inactive_people = len(df_values[criterion].astype("float").values) - len(temp[criterion].astype("float").values)
             one_percent = len(df_values[criterion].astype("float").values)/100
             fraction_inactive = num_inactive_people/one_percent
-            print("fraction_inactive: "+str(fraction_inactive))
+            f.write(" fraction_inactive: "+str(fraction_inactive))
             
             
             temp_male = df_values[df_values["gender"]=="m"]
@@ -156,7 +159,8 @@ def get_cohort_stats(data, start_year, max_years, criterion, cohort_size_gini):
                                  columns=["cohort_start_year", "cohort_size", "year", "gini"]), ignore_index =True)  
         # maintain only author and prev_value for calculations    
         df_values = df_values[['author','gender','prev_value']]
-        
+    
+    f.close()     
     return (cumnum_over_years, cohort_size_gini, gini_over_years) 
     
         
