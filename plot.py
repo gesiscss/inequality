@@ -8,6 +8,10 @@ import math
 import seaborn as sns
 from matplotlib.font_manager import FontProperties
 
+
+END_YEAR = 2015
+
+
 # set global settings
 def init_plotting():
     #print(plt.style.available)
@@ -66,7 +70,7 @@ def get_cohort_stats(data, start_year, max_years, criterion, cohort_size_gini):
     cohort = data[data["start_year"]==start_year]
     cohort_authors = cohort["author"].values
     cohort_size  = len(cohort_authors)
-    #print("------------ COHORT SIZE: "+str(cohort_size)) 
+    print("------------ COHORT START YEAR: "+str(start_year)+"  ---  size:"+str(cohort_size)) 
     
     # Problem: authors who do not publish in y year dont show up
     # we need to set their value to 0 or to the value of previous year (for cumulative calculation)   
@@ -85,7 +89,9 @@ def get_cohort_stats(data, start_year, max_years, criterion, cohort_size_gini):
     
     # extract num publications/citations for the cohort in all future years
     for y in subsequent_years:
-          
+       
+        print("subsequent_year: "+str(y) )
+        
         temp = cohort[cohort["year"]==y]
         # size will show how many people received citatins or published papers in that year
         #print("******************************** temp: cohort size in year"+str(y)+" size "+str(temp.shape[0]))
@@ -117,6 +123,13 @@ def get_cohort_stats(data, start_year, max_years, criterion, cohort_size_gini):
             # if we compute gini over df_values we keep values from previous year is someone did not 
             # publish anything in the current year --> i.e. distribution becomes longer
             #gini_over_years.loc[y] = calculate.gini(temp[criterion].astype("float").values)
+            
+            #fraction of inactive people
+            num_inactive_people = len(df_values[criterion].astype("float").values) - len(temp[criterion].astype("float").values)
+            one_percent = len(df_values[criterion].astype("float").values)/100
+            fraction_inactive = num_inactive_people/one_percent
+            print("fraction_inactive: "+str(fraction_inactive))
+            
             
             temp_male = df_values[df_values["gender"]=="m"]
             temp_female = df_values[df_values["gender"]=="f"]
@@ -201,7 +214,7 @@ def plot_cohort_analysis_on(data, criterion, start_years, max_years, criteria_di
 
     #(1) fig1: gini of (cumulative) number of publications/citations for each cohort over time
     fig1 = plt.figure()
-    plt.ylim(0, 0.7)
+    #plt.ylim(0, 0.7)
     fig1.patch.set_facecolor('white')
     ax1 = fig1.add_subplot(1,1,1) #axisbg="white"
     
@@ -221,8 +234,9 @@ def plot_cohort_analysis_on(data, criterion, start_years, max_years, criteria_di
      # rearange subplots dynamically
     cols=2
     
-    # TODOOOO: SELECT COHORT START YEARS
-    cohort_start_years = [y for y in start_years if y < (2015 - max_years)]
+    
+    # TODOOOO: SELECT COHORT START YEARS FOR TESTING
+    cohort_start_years = [y for y in start_years if y < (END_YEAR - max_years)]
     #cohort_start_years = [1974, 1984, 1994]
  
    
@@ -251,22 +265,22 @@ def plot_cohort_analysis_on(data, criterion, start_years, max_years, criteria_di
     for year in cohort_start_years: 
        
         #get the cohort names
-        print(year)
-        print(start_years)
-        print("get_cohort_stats")
+        #print(year)
+        #print(start_years)
+        #print("get_cohort_stats")
         (cumnum_over_years, cohort_size_gini, gini_over_years) = get_cohort_stats(data, year, max_years, criterion, cohort_size_gini)
         
-        print("RETURNED FROM get_cohort_stats")
-        print(cumnum_over_years.head(n=2))
-        print(cohort_size_gini.head(n=2))
-        print(gini_over_years.head(n=2))
+        #print("RETURNED FROM get_cohort_stats")
+        #print(cumnum_over_years.head(n=2))
+        #print(cohort_size_gini.head(n=2))
+        #print(gini_over_years.head(n=2))
         
         
         gini_years_df = pd.DataFrame(gini_over_years.reset_index())
         gini_years_df.columns = ["year", "gini"]
         #gini_per_cohort[year] = gini_years_df
 
-        print(gini_years_df.head())
+        #print(gini_years_df.head())
         
         gini_years = gini_years_df["year"].values
         gini_coefs= gini_years_df["gini"].values
@@ -479,7 +493,7 @@ def plot_regress_performance_on_inequality(data, criterion, years, max_years):
     # For each cohort, go through all their careers years and calculate the mean and GINI
     for year in years: 
         #we cannot follow the cohort for max years; for 2016 we do not have enough data
-        if year > (2015 - max_years):
+        if year > (END_YEAR - max_years):
             #print('I am breaking - ', year)
             break
             
