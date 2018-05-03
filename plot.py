@@ -45,9 +45,130 @@ def init_plotting():
     plt.rcParams['axes.linewidth'] = 4
     return plt
 
-    
 
-def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display):
+def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion):
+    #returns either num pub, cum num pub, num cit or cum num cit 
+    cohort_careerage_df = pd.DataFrame(columns=["cohort_start_year", "career_age", criterion, "gender"])
+
+    for year in cohort_start_years: 
+        cohort = data[data["start_year"]==year]
+        print(cohort.head(3))
+        
+    
+    
+def get_cohort_stats(data, start_year, max_years, criterion, cohort_size_gini):
+    # input: data frame, cohort start year, num years we want to follow each cohort
+    # output: for the cohort that started in input-year we compute for each career age statistics
+    # cumnum_over_years: compute mean, median, std of distribution (e.g. publications, citations cum pub, cum cit)
+    # gini_over_years: stored for each career age of one cohort the gini of the distr (pub, cit, cum pub, cum cit)
+    # cohort_size_gini: stores cohort start yea, cohort size, career age and gini
+    
+    cohort = data[data["start_year"]==start_year]
+    cohort_authors = cohort["author"].values
+    cohort_size  = len(cohort_authors)
+    #print("------------ COHORT SIZE: "+str(cohort_size)) 
+    
+    # Problem: authors who do not publish in y year dont show up
+    # we need to set their value to 0 or to the value of previous year (for cumulative calculation)   
+    df_values = pd.DataFrame(cohort[['author', 'gender']])
+    df_values['prev_value'] = [0]* df_values.shape[0]
+
+   
+    
+    subsequent_years = [(start_year+i) for i in range (0, max_years)]
+    #print(subsequent_years)
+    #subsequent_years = [yr for yr in years if yr >= start_year]
+    
+    
+    gini_over_years = pd.Series(data=0, index=subsequent_years)
+    cumnum_over_years = pd.DataFrame(data=0, index=subsequent_years, \
+                                         columns=["mean", "std", "mean_f", "median_f", "std_f", "mean_m", "median_m", \
+                                                  "std_m", "mean_n", "median_n", "std_n"])
+    
+    # extract num publications/citations for the cohort in all future years
+    for y in subsequent_years:
+          
+        temp = cohort[cohort["year"]==y]
+        # size will show how many people received citatins or published papers in that year
+        #print("******************************** temp: cohort size in year"+str(y)+" size "+str(temp.shape[0]))
+      
+        # make sure cohort is not shrinking
+        df_values = pd.merge(df_values,temp[['author',criterion]], how='left', on='author')
+        #print("make sure cohort is not shrinking --> subsequent_year:  "+str(y)+" cohort values"+str(len(df_values[criterion].astype("float").values)))
+        
+        #Take the current values. If NaN or None then consider the previous values
+        df_values[criterion] = df_values[criterion].combine_first(df_values['prev_value'])
+        
+      
+        # If it is cumulative then previous values is set with current
+        # Otherwise previous value will always be 0
+        if(criterion.startswith('cum_')) :
+            df_values['prev_value'] = df_values[criterion]
+
+     
+        temp_count = len(df_values[criterion].astype("float").values)
+        #print("temp_count (length of distribution of pubs/cits):   "+str(temp_count))    
+        
+        if temp_count > 0:
+            # gini per year based on (cum) num of publications/citations of all authors in this year    
+            #gini_over_years.loc[y] = calculate.gini(df_values[criterion].astype("float").values)
+            
+            # BUG???? gini was previously computed based on temp dataframe which only contains values when people publish
+            # since in more recent cohorts people publish more, more inequality emerges
+            # if we compute gini over df_values we keep values from previous year is someone did not 
+            # publish anything in the current year --> i.e. distribution becomes longer
+            gini_over_years.loc[y] = calculate.gini(temp[criterion].astype("float").values)
+            
+            temp_male = df_values[df_values["gender"]=="m"]
+            temp_female = df_values[df_values["gender"]=="f"]
+            temp_none = df_values[df_values["gender"]=="none"]
+
+            cumnum_over_years.loc[y] = [np.mean(df_values[criterion].astype("float").values), 
+                                               stats.sem(df_values[criterion].astype("float").values),
+                                               np.mean(temp_female[criterion].astype("float").values), 
+                                               np.median(temp_female[criterion].astype("float").values), 
+                                               stats.sem(temp_female[criterion].astype("float").values),
+                                               np.mean(temp_male[criterion].astype("float").values), 
+                                               np.median(temp_male[criterion].astype("float").values), 
+                                               stats.sem(temp_male[criterion].astype("float").values),
+                                               np.mean(temp_none[criterion].astype("float").values), 
+                                               np.median(temp_none[criterion].astype("float").values), 
+                                               stats.sem(temp_none[criterion].astype("float").values)]
+        else:
+            print("Here no values for gini calculation found!!!!!!!!!!!!!!!!!!!")
+            gini_over_years.loc[y] = np.nan
+            cumnum_over_years.loc[y] = [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
+               
+        
+        cohort_size_gini = cohort_size_gini.append( pd.DataFrame([[start_year, cohort_size, y, gini_over_years[y]]], 
+                                 columns=["cohort_start_year", "cohort_size", "year", "gini"]), ignore_index =True)  
+        # maintain only author and prev_value for calculations    
+        df_values = df_values[['author','gender','prev_value']]
+        
+    return (cumnum_over_years, cohort_size_gini, gini_over_years) 
+    
+        
+      
+
+        
+        
+def plot_cumulative_dist(data, criterion, cohort_start_years, career_ages, criteria_display):
+    # creates one cdf plot for each career age; each cohort is one line
+    for age in career_ages:
+        fig1 = plt.figure()
+        fig1.patch.set_facecolor('white')
+        ax1 = fig1.add_subplot(1,1,1) #axisbg="white"
+        
+        
+        ax1.set_title('Career Age '+str(age))
+        ax1.legend(years)  
+        fig1.savefig("fig/cdf_"+criterion+"_age"+str(age)+".png", facecolor=fig1.get_facecolor(), edgecolor='none', bbox_inches='tight')
+
+        
+ 
+
+        
+def plot_cohort_analysis_on(data, criterion, start_years, max_years, criteria_display):
     
     # Compute and plot GINI of publication/citation distributions for each cohort over time.
     # criterion defines which distribution to use: publications, citations, cumulative publications, cumulative citations
@@ -72,12 +193,12 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
     plt = init_plotting()
     
     #if years are grouped then get the step limit - infer the group
-    step = years[1] - years[0]
+    step = start_years[1] - start_years[0]
     
     #store for each cohort and year gini of publication and citation distribution
-    gini_per_cohort = pd.DataFrame(index=years)
+    gini_per_cohort = pd.DataFrame(index=start_years)
     #store for each cohort and year gini of cumulative publication and citationdistribution
-    cumnum_per_cohort = pd.DataFrame(index=years)
+    cumnum_per_cohort = pd.DataFrame(index=start_years)
 
     #(1) fig1: gini of (cumulative) number of publications/citations for each cohort over time
     fig1 = plt.figure()
@@ -101,12 +222,16 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
      # rearange subplots dynamically
     cols=2
     
-    # if we use 2015 we have exactly 30 cohorts which nicely fits on a 5x6 plot
-    cohort_start_years = [y for y in years if y < (2015 - max_years)]
-    print(cohort_start_years)
+    # TODOOOO: SELECT COHORT START YEARS
+    cohort_start_years = [y for y in start_years if y < (2015 - max_years)]
+    #cohort_start_years = [1974, 1984, 1994]
+ 
+   
+
     # 15 cohorts
     if(len(cohort_start_years)>10):
         cols=6
+    
     nrows = math.ceil(float(len(cohort_start_years))/float(cols))
     nrows = int(nrows)
     
@@ -127,87 +252,28 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
     for year in cohort_start_years: 
        
         #get the cohort names
-        cohort = data[data["start_year"]==year]
-        cohort_authors = cohort["author"].values
-        cohort_size  = len(cohort_authors)
-       
-        #Maintain previous values in cumulative calculations otherwise 0
-        df_values = pd.DataFrame(cohort[['author', 'gender']])
-        df_values['prev_value'] = [0]* df_values.shape[0]
-
-        gini_over_years = pd.Series(data=0, index=years)
-        cumnum_over_years = pd.DataFrame(data=0, index=years, \
-                                         columns=["mean", "std", "mean_f", "median_f", "std_f", "mean_m", "median_m", \
-                                                  "std_m", "mean_n", "median_n", "std_n"])
-
-        subsequent_years = [yr for yr in years if yr >= year]
+        print(year)
+        print(start_years)
+        print("get_cohort_stats")
+        (cumnum_over_years, cohort_size_gini, gini_over_years) = get_cohort_stats(data, year, max_years, criterion, cohort_size_gini)
         
-        # extract num publications/citations for the cohort in all future years
-        for y in subsequent_years:
-            
-            # get all the authors data for each year and filter based on the authors that we are interested in
-            temp = data[data["year"]==y]
-            temp = temp[temp["author"].isin(cohort_authors)]
-            
-            df_values = pd.merge(df_values,temp[['author',criterion]],how='left',on='author')
-            
-            #Take the current values. If NaN or None then consider the previous values
-            df_values[criterion] = df_values[criterion].combine_first(df_values['prev_value'])
-
-            # If it is cumulative then previous values is set with current
-            # Otherwise previous value will always be 0
-            if(criterion.startswith('cum_')) :
-                df_values['prev_value'] = df_values[criterion]
-
-            temp_count = len(df_values[criterion].astype("float").values)
-            
-            if temp_count > 0:
-                # gini per year based on cumulative num of publications/citations of all authors in this year
-                gini_over_years.loc[y] = calculate.gini(temp[criterion].astype("float").values)
-               
-                      #cohort_len[len(cohort_len)-1]['actual'].append(temp[criterion].values.shape[0])
-                #print(temp[criterion].astype("float").values.)
-
-                temp_male = df_values[df_values["gender"]=="m"]
-                temp_female = df_values[df_values["gender"]=="f"]
-                temp_none = df_values[df_values["gender"]=="none"]
-
-                cumnum_over_years.loc[y] = [np.mean(df_values[criterion].astype("float").values), 
-                                               stats.sem(df_values[criterion].astype("float").values),
-                                               np.mean(temp_female[criterion].astype("float").values), 
-                                               np.median(temp_female[criterion].astype("float").values), 
-                                               stats.sem(temp_female[criterion].astype("float").values),
-                                               np.mean(temp_male[criterion].astype("float").values), 
-                                               np.median(temp_male[criterion].astype("float").values), 
-                                               stats.sem(temp_male[criterion].astype("float").values),
-                                               np.mean(temp_none[criterion].astype("float").values), 
-                                               np.median(temp_none[criterion].astype("float").values), 
-                                               stats.sem(temp_none[criterion].astype("float").values)]
-            else:
-                # If we use cumulative values then this should not happen.
-                # If publication and citation counts are used then it can happen that at one year for one cohort, depending
-                # on the credibility chosen none of the authors might have published or got citation
-                # In those cases, we subsitute GINI with NaN
-                
-                print("Here no values for gini calculation found!!!!!!!!!!!!!!!!!!!")
-                gini_over_years.loc[y] = np.nan
-                cumnum_over_years.loc[y] = [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
-               
+        print("RETURNED FROM get_cohort_stats")
+        print(cumnum_over_years.head(n=2))
+        print(cohort_size_gini.head(n=2))
+        print(gini_over_years.head(n=2))
         
-            cohort_size_gini = cohort_size_gini.append( pd.DataFrame([[year, cohort_size, y, gini_over_years[y]]], 
-                                 columns=["cohort_start_year", "cohort_size", "year", "gini"]), ignore_index =True)  
-            # maintain only author and prev_value for calculations    
-            df_values = df_values[['author','gender','prev_value']]
-            
+        
         gini_years_df = pd.DataFrame(gini_over_years.reset_index())
         gini_years_df.columns = ["year", "gini"]
-     
         #gini_per_cohort[year] = gini_years_df
 
+        print(gini_years_df.head())
+        
         gini_years = gini_years_df["year"].values
         gini_coefs= gini_years_df["gini"].values
         selected_gini_df = gini_years_df[(gini_years_df["year"] >= year) &  \
                                          (gini_years_df["year"] < (year+max_years))]
+    
         
         # limit plot to the N years during which we follow a cohort
         #the length of cohort duration (x-axis) and y-axis values have to be the same
@@ -225,20 +291,12 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
         selected_cumnum_df = cumnum_years_df[(cumnum_years_df["year"] >= year) &  \
                                              (cumnum_years_df["year"] < (year+max_years))]
         ax2.errorbar(cohort_duration, selected_cumnum_df["mean"].values,  yerr=selected_cumnum_df["std"].values)
-        #ax2.fill_between(cohort_duration, selected_cumnum_df["mean"].values-selected_cumnum_df["std"].values, 
-        #            selected_cumnum_df["mean"].values+selected_cumnum_df["std"].values,
-	#				alpha=0.2, 
-	#				linewidth=4, linestyle='dashdot', antialiased=True) 
-       
+   
         
         ## plots the mean of publication/citation gender wise for each cohort
         ax3[i,j] = plot_gender_numcum(ax3[i,j], cohort_duration, selected_cumnum_df, year, "mean")
         ax3[i,j].set_title(str(year), fontsize=12, fontweight="bold")
-        #font0 = FontProperties()
-        #font = font0.copy()
-        #font.set_weight('bold')
-        #ax3[i,j].text(9, 1, str(year), fontproperties=font)
-    
+   
         if (j<cols-1):
             j = j+1
         else:
@@ -254,17 +312,17 @@ def plot_cohort_analysis_on(data, criterion, years, max_years, criteria_display)
     ax1.set_ylabel('Gini ('+criteria_display+')', fontweight='bold')
     ax1.set_xlabel('Career Age', fontweight='bold')
 
-    #ax1.set_title('Inequality of al cohorts over '+str(max_years)+' years')
-    if len(years)<10:
-        ax1.legend(years)  
+ 
+    if len(cohort_start_years)<10:
+        ax1.legend(cohort_start_years)  
     fig1.savefig("fig/gini_"+criterion+".png", facecolor=fig1.get_facecolor(), edgecolor='none', bbox_inches='tight')
 
     ax2.set_ylabel("Mean "+criteria_display, fontweight='bold')
     ax2.set_xlabel('Career Age', fontweight='bold')
    
-    #ax2.set_title('Mean/Std of al cohorts over '+str(max_years)+' years')
-    if len(years)<10:
-        ax2.legend(years)  
+
+    if len(cohort_start_years)<10:
+        ax2.legend(cohort_start_years)  
 
     fig2.savefig("fig/mean_"+criterion+".png", facecolor=fig2.get_facecolor(), edgecolor='none', bbox_inches='tight')
     fig3.savefig("fig/mean_"+criterion+"_gender.png", facecolor=fig3.get_facecolor(), edgecolor='none', bbox_inches='tight')
