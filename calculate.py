@@ -10,8 +10,8 @@ def gini(array):
     # from:
     # http://www.statsdirect.com/help/default.htm#nonparametric_methods/gini.htm
     # All values are treated equally, arrays must be 1d:
+    #array = array.flatten()
     
-    array = array.flatten()
     if np.min(array) < 0:
         # Values cannot be negative:
         array -= np.min(array)
@@ -79,4 +79,8 @@ def groupDataAndCalculateCumulativeValues(data, group_year, criterion):
     data = data.reset_index()
     #print(data.head(10))
     return data
+
+
+
+
     

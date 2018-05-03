@@ -76,9 +76,7 @@ def get_cohort_stats(data, start_year, max_years, criterion, cohort_size_gini):
    
     
     subsequent_years = [(start_year+i) for i in range (0, max_years)]
-    #print(subsequent_years)
-    #subsequent_years = [yr for yr in years if yr >= start_year]
-    
+  
     
     gini_over_years = pd.Series(data=0, index=subsequent_years)
     cumnum_over_years = pd.DataFrame(data=0, index=subsequent_years, \
@@ -111,13 +109,14 @@ def get_cohort_stats(data, start_year, max_years, criterion, cohort_size_gini):
         
         if temp_count > 0:
             # gini per year based on (cum) num of publications/citations of all authors in this year    
-            #gini_over_years.loc[y] = calculate.gini(df_values[criterion].astype("float").values)
+            gini_over_years.loc[y] = calculate.gini(df_values[criterion].astype("float").values)
             
-            # BUG???? gini was previously computed based on temp dataframe which only contains values when people publish
-            # since in more recent cohorts people publish more, more inequality emerges
+            # BUG
+            # BUG: gini was previously computed based on temp dataframe which only contains values when people publish
+            # Gini tends to increase with array-length and in more recent cohorts people publish more --> inequality emerges
             # if we compute gini over df_values we keep values from previous year is someone did not 
             # publish anything in the current year --> i.e. distribution becomes longer
-            gini_over_years.loc[y] = calculate.gini(temp[criterion].astype("float").values)
+            #gini_over_years.loc[y] = calculate.gini(temp[criterion].astype("float").values)
             
             temp_male = df_values[df_values["gender"]=="m"]
             temp_female = df_values[df_values["gender"]=="f"]
@@ -515,7 +514,7 @@ def plot_regress_performance_on_inequality(data, criterion, years, max_years):
             temp_count = len(df_values[criterion].astype("float").values)
          
             if temp_count > 0:
-                gini = calculate.gini(df_values[criterion].astype("float").values)
+                gini = calculate.gini(df_values[criterion].astype("float").values.flatten())
                 mean = np.mean(df_values[criterion].astype("float").values)
             else:
                 gini = 0
