@@ -12,9 +12,12 @@ def gini(array):
     # All values are treated equally, arrays must be 1d:
     
     array = array.flatten()
-    if np.min(array) < 0:
-        # Values cannot be negative:
-        array -= np.min(array)
+    try:
+        if np.min(array) < 0:
+            # Values cannot be negative:
+            array -= np.min(array)
+    except ValueError:  #raised if `array` is empty.
+        return 0
     # Values cannot be 0:
     array += 0.0000001
     # Values must be sorted:
