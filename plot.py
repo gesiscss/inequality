@@ -227,6 +227,9 @@ def get_cohort_stats(data, start_year, max_years, criterion, cohort_size_gini):
 
 def plot_cumulative_dist(df, age, criterion, criteria_display):
     # creates one cdf plot for each career age; each cohort is one line
+    
+    init_plotting()
+    
     fig1 = plt.figure()
     fig1.patch.set_facecolor('white')
     ax1 = fig1.add_subplot(1,1,1) #axisbg="white"
@@ -254,17 +257,19 @@ def plot_cumulative_dist(df, age, criterion, criteria_display):
         #for item in arr:
         #    print("****** YEAR: "+str(y)+"  ---  "+str(len(item)))
             
-        df_one_age_one_cohort_values = df_one_age_one_cohort["values"].values[0]
+        df_one_age_one_cohort_values = np.sort(df_one_age_one_cohort["values"].values[0])
+        
+        #df_one_age_one_cohort_values_unique = np.unique(df_one_age_one_cohort_values)
         
         #normalize values to make them compareable across cohort
-        norm_values = df_one_age_one_cohort_values/np.sum(df_one_age_one_cohort_values)
+        norm_values = (df_one_age_one_cohort_values-min(df_one_age_one_cohort_values))/(max(df_one_age_one_cohort_values)-min(df_one_age_one_cohort_values))
         
         i += 1
-        plt.hist(norm_values, normed=True, cumulative=True, label='CDF', histtype='step', alpha=0.8, color=colors[i])
+        plt.hist(norm_values, normed=True, cumulative=True, label='CDF', histtype='step', color=colors[i], linewidth=3)
     
     
     ax1.set_title('Career Age '+str(age))
-    ax1.legend(cohort_start_years)  
+    ax1.legend(cohort_start_years, loc=4)  
     fig1.savefig("fig/cdf_"+criterion+"_age"+str(age)+".png", facecolor=fig1.get_facecolor(), edgecolor='none', bbox_inches='tight')
 
         
