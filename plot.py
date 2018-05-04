@@ -55,8 +55,9 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion)
   
     #gender can be all, f or m or none
     cohort_careerage_df = pd.DataFrame(columns=["cohort_start_year", "career_age", "criterion", "gender", "values"])
+    #cohort_careerage_df.set_index(["cohort_start_year", "career_age", "criterion", "gender"])
 
-    print(data.head(3))
+    #print(data.head(3))
     for start_year in cohort_start_years: 
         cohort = data[data["start_year"]==start_year]
         #print(cohort.head(1))
@@ -74,7 +75,7 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion)
         age = 0
         for y in subsequent_years:
         
-            age =+ 1
+            age = age+1
             values = pd.Series(data=0) #index=range(0, cohort_size)
             
             temp = cohort[cohort["year"]==y]
@@ -95,11 +96,11 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion)
      
             
             all_values = df_values[criterion].astype("float").values
+            #print("all_values for start_year:  "+str(start_year)+"  career_age: "+str(age)+" criterion: "+criterion+" gender: all" )
+            #print(len(all_values))
             
             cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year, 'career_age':age, 'criterion':criterion, 'gender':'all', 'values': all_values}, ignore_index=True)
-            
-            
-          
+                   
             
             temp_male = df_values[df_values["gender"]=="m"]
             temp_female = df_values[df_values["gender"]=="f"]
@@ -230,33 +231,40 @@ def plot_cumulative_dist(df, age, criterion, criteria_display):
     fig1.patch.set_facecolor('white')
     ax1 = fig1.add_subplot(1,1,1) #axisbg="white"
     
-    #test = pd.Series([i for i in range(100)])
-    #test.hist(cumulative='True')    
-    
+
     df_one_age = df[df["career_age"]==age]
+
     df_one_age = df_one_age[df_one_age["criterion"]==criterion]
+
+    df_one_age = df_one_age[df_one_age["gender"]=='all']
+ 
     
-    numcolors = len(np.unique(df_one_age["cohort_start_year"].values))
-    #print("num colors needed: "+str(numcolors))
+    cohort_start_years = np.unique(df_one_age["cohort_start_year"].values)
+    numcolors = len(cohort_start_years)+1
+
     colors = cm.rainbow(np.linspace(0, 1, numcolors))                                
     i = 0
                         
-    for y in np.unique(df_one_age["cohort_start_year"].values):
-        #print(df_one_age[df_one_age["cohort_start_year"]==y].head())
-        #print(df_one_age["values"].values)
-        #print(type(df_one_age["values"].values))
+    for y in cohort_start_years:
+   
+        df_one_age_one_cohort = df_one_age[df_one_age["cohort_start_year"]==y]
+        arr = df_one_age_one_cohort["values"].values
+        
+        # there should be only one array per cohort-start-year and career age
+        #for item in arr:
+        #    print("****** YEAR: "+str(y)+"  ---  "+str(len(item)))
+            
+        df_one_age_one_cohort_values = df_one_age_one_cohort["values"].values[0]
         
         #normalize values to make them compareable across cohort
-        norm_values = df_one_age["values"].values / np.sum(df_one_age["values"].values)
-        print(norm_values)
-        print(len(norm_values))
+        norm_values = df_one_age_one_cohort_values/np.sum(df_one_age_one_cohort_values)
         
         i += 1
         plt.hist(norm_values, normed=True, cumulative=True, label='CDF', histtype='step', alpha=0.8, color=colors[i])
     
     
     ax1.set_title('Career Age '+str(age))
-    ax1.legend(years)  
+    ax1.legend(cohort_start_years)  
     fig1.savefig("fig/cdf_"+criterion+"_age"+str(age)+".png", facecolor=fig1.get_facecolor(), edgecolor='none', bbox_inches='tight')
 
         
