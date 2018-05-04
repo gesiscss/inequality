@@ -237,16 +237,22 @@ def plot_cumulative_dist(df, age, criterion, criteria_display):
     df_one_age = df_one_age[df_one_age["criterion"]==criterion]
     
     numcolors = len(np.unique(df_one_age["cohort_start_year"].values))
-    print("num colors needed: "+str(numcolors))
+    #print("num colors needed: "+str(numcolors))
     colors = cm.rainbow(np.linspace(0, 1, numcolors))                                
     i = 0
                         
     for y in np.unique(df_one_age["cohort_start_year"].values):
-        print(df_one_age[df_one_age["cohort_start_year"]==y].head())
+        #print(df_one_age[df_one_age["cohort_start_year"]==y].head())
         #print(df_one_age["values"].values)
-        print(type(df_one_age["values"].values))
+        #print(type(df_one_age["values"].values))
+        
+        #normalize values to make them compareable across cohort
+        norm_values = df_one_age["values"].values / np.sum(df_one_age["values"].values)
+        print(norm_values)
+        print(len(norm_values))
+        
         i += 1
-        plt.hist(df_one_age["values"].values, normed=True, cumulative=True, label='CDF', histtype='step', alpha=0.8, color=colors[i])
+        plt.hist(norm_values, normed=True, cumulative=True, label='CDF', histtype='step', alpha=0.8, color=colors[i])
     
     
     ax1.set_title('Career Age '+str(age))
