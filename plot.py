@@ -52,7 +52,7 @@ def init_plotting():
 
 def run_cohort_analysis(groupByYearData, cohort_start_years, career_length, criterion, criterion_display):
     cohort_careerage_df = get_cohort_careerage_df(groupByYearData, cohort_start_years, career_length, criterion)
-    
+  
     #gini
     cohort_size_gini = get_cohort_gini(cohort_careerage_df,criterion)
     plot_gini(cohort_size_gini, criterion, criterion_display)
@@ -70,7 +70,7 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion)
     
     f = open('fig/inactive_'+criterion+'.txt','w') 
 
-   
+  
     #gender can be all, f or m or none
     cohort_careerage_df = pd.DataFrame(columns=["cohort_start_year", "career_age", "criterion", "gender", "values"])
     #cohort_careerage_df.set_index(["cohort_start_year", "career_age", "criterion", "gender"])
@@ -236,7 +236,9 @@ def plot_cumulative_dist(df, age, criterion, criteria_display):
     
 
     df_one_age = df[df["career_age"]==age]
+
     df_one_age = df_one_age[df_one_age["criterion"]==criterion]
+
     df_one_age = df_one_age[df_one_age["gender"]=='all']
  
     
@@ -311,8 +313,8 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
     # Plots: 
     # (2) fig2: mean (cumulative) number of publications/citations for each cohort over time,
     # (3) fig3: mean (cumulative) number of publications/citations for each cohort over time,
- 
     
+   
     plt = init_plotting()
 
     #(2) fig2: mean (cumulative) number of publications/citations for each cohort over time,
@@ -344,7 +346,7 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
     ax_outside.set_xlabel('Career Age', labelpad=20, fontweight='bold') 
     ax_outside.set_ylabel('Mean '+criteria_display, labelpad=20, fontweight='bold')
 
-    
+        
     highlighted_cohorts = []  
     colors = ('b', 'g', 'r', 'c', 'm', 'y', 'k')
     markers = []
@@ -361,7 +363,7 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
     for year in cohort_start_years: 
         
         cohort = data[data["cohort_start_year"]==year]
-        cohort = cohort[cohort["criterion"]==criterion]   
+        cohort = cohort[cohort["criterion"]==criterion]                                               
        
         #cumnum_over_years = get_cohort_stats(df, year, max_years, criterion)
         #cohort_duration = np.arange(0,len(selected_gini_df["gini"].values)*step, step)
@@ -375,7 +377,7 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
         else:
             ax2.errorbar(cohort["age"], cohort["mean"].values,  yerr=cohort["sem"].values, color='grey')
     
-  
+   
         
         ## plots the mean of publication/citation gender wise for each cohort
         ax3[i,j] = plot_gender_numcum(ax3[i,j], cohort["age"], cohort, "mean")
@@ -499,24 +501,25 @@ def plot_cohort_size_gini_cor(data, criterion, criteria_display):
     
     
 def plot_gender_numcum(ax, cohort_duration, selected_cumnum_df, selected_stat):
-    
+#     print(cohort_duration.head())
+#     print(selected_cumnum_df.head())
     ax.plot(cohort_duration, selected_cumnum_df[selected_stat+"_f"].values,  label='women', color="red")
     if (selected_stat == "mean"):
-        ax.fill_between(cohort_duration, selected_cumnum_df["mean_f"].values-selected_cumnum_df["sem_f"].values, 
+        ax.fill_between(np.array(cohort_duration, dtype=float), selected_cumnum_df["mean_f"].values-selected_cumnum_df["sem_f"].values, 
                     selected_cumnum_df["mean_f"].values+selected_cumnum_df["sem_f"].values,
 					alpha=0.2, edgecolor='red', facecolor='red',
 					linewidth=4, linestyle='dashdot', antialiased=True)
     
     ax.plot(cohort_duration, selected_cumnum_df[selected_stat+"_m"].values,  label='men', color="blue")
     if(selected_stat == "mean"):
-        ax.fill_between(cohort_duration, selected_cumnum_df["mean_m"].values-selected_cumnum_df["sem_m"].values, 
+        ax.fill_between(np.array(cohort_duration, dtype=float), selected_cumnum_df["mean_m"].values-selected_cumnum_df["sem_m"].values, 
                     selected_cumnum_df["mean_m"].values+selected_cumnum_df["sem_m"].values,
 					alpha=0.2, edgecolor='blue', facecolor='blue',
 					linewidth=4, linestyle='dashdot', antialiased=True)
 
     ax.plot(cohort_duration, selected_cumnum_df[selected_stat+"_n"].values,  label='unknown', color="grey")
     if(selected_stat == "mean"):
-        ax.fill_between(cohort_duration, selected_cumnum_df["mean_n"].values-selected_cumnum_df["sem_n"].values, 
+        ax.fill_between(np.array(cohort_duration, dtype=float), selected_cumnum_df["mean_n"].values-selected_cumnum_df["sem_n"].values, 
                     selected_cumnum_df["mean_n"].values+selected_cumnum_df["sem_n"].values,
 					alpha=0.2, edgecolor='grey', facecolor='grey',
 					linewidth=4, linestyle='dashdot', antialiased=True) 
