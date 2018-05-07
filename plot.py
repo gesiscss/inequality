@@ -416,16 +416,18 @@ def plot_cohort_size_gini_cor(data, criterion, criteria_display):
         res_cor_year = res_cor_year.append(pd.DataFrame([[age, pcor[0], pcor[1], num_obs]], columns=["career_age", "cor", "p", "num_obs"]), 
                          ignore_index=True)
          
+        eps = np.finfo(np.float32).eps 
         ax2[i,j].scatter(temp["cohort_start_year"], temp["gini"],  c="r", s=6)
-        m, b = np.polyfit(temp["cohort_start_year"], temp["gini"], 1)
+        m, b = np.polyfit(np.float32(temp["cohort_start_year"]), temp["gini"], 1, rcond = len(temp["cohort_start_year"])*eps)
         ax2[i,j].plot(temp["cohort_start_year"], m*temp["cohort_start_year"] + b, '-')
         ax2[i,j].set_title("Age "+str(int(age))+" (c="+str(np.around(pcor2[0], decimals=2))+" p="+str(np.around(pcor2[1],decimals=3))+")", fontsize=12, fontweight="bold")
         #ax2[i,j].text(1975, 0.16, "cor="+str(np.around(pcor2[0], decimals=2))+" p="+str(np.around(pcor2[1],decimals=2)))
         labels =  ax2[i,j].get_xticklabels()
         plt.setp(labels,  rotation=45, fontsize=12, figure=fig2)
+        
 
         ax[i,j].scatter(temp["cohort_size"], temp["gini"],  c="r", s=6)
-        m, b = np.polyfit(temp["cohort_size"], temp["gini"], 1)
+        m, b = np.polyfit(np.float32(temp["cohort_size"]), temp["gini"], 1, rcond = len(temp["cohort_start_year"])*eps)
         ax[i,j].plot(temp["cohort_size"], m*temp["cohort_size"] + b, '-')
         ax[i,j].set_title("Age "+str(int(age))+" (c="+str(np.around(pcor[0], decimals=2))+" p="+str(np.around(pcor[1],decimals=3))+")", fontsize=12, fontweight="bold")
         #ax[i,j].text(0.002, 0.16, "cor="+str(np.around(pcor[0], decimals=2))+" p="+str(np.around(pcor[1],decimals=2)))
@@ -548,8 +550,8 @@ def plot_regress_performance_on_inequality(data, criterion, years, max_years):
         analysis_output = analysis_output.append({'year':year, \
                                 'intercept':regr.intercept_[0], \
                                 'reg_coeff':regr.coef_[0][0], \
-                                'residue':regr.residues_[0]}, \
-                                ignore_index=True)
+                                #'residue':regr.residues_[0]
+                                 },ignore_index=True)
         
     # plot the regression analysis
     fig = plt.figure(figsize=(15,5))
@@ -559,7 +561,7 @@ def plot_regress_performance_on_inequality(data, criterion, years, max_years):
 
     ax1.plot(analysis_output['year'],analysis_output['intercept'],label='Intercept')
     ax1.plot(analysis_output['year'],analysis_output['reg_coeff'],label='Reg. coefficient -b1')
-    ax1.plot(analysis_output['year'],analysis_output['residue'],label='Residue')
+    #ax1.plot(analysis_output['year'],analysis_output['residue'],label='Residue')
     ax1.set_xlabel('Year that cohort started')
     ax1.legend()
 
