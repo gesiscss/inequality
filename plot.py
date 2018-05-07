@@ -9,8 +9,8 @@ import seaborn as sns
 from matplotlib.font_manager import FontProperties
 import random 
 import matplotlib.cm as cm
-
-
+from collections import Counter
+from matplotlib.lines import Line2D
 
 # set global settings
 def init_plotting():
@@ -52,7 +52,7 @@ def init_plotting():
 
 def run_cohort_analysis(groupByYearData, cohort_start_years, career_length, criterion, criterion_display):
     cohort_careerage_df = get_cohort_careerage_df(groupByYearData, cohort_start_years, career_length, criterion)
-  
+    
     #gini
     cohort_size_gini = get_cohort_gini(cohort_careerage_df,criterion)
     plot_gini(cohort_size_gini, criterion, criterion_display)
@@ -66,7 +66,11 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, career_length, crit
     
 def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion):
     #returns a dataframe: cohort start year, career age, gender, distribution of values (num pub or cum num pub or num cit or cum num cit) 
-  
+    # save fraction of inactive authors per year
+    
+    f = open('fig/inactive_'+criterion+'.txt','w') 
+
+   
     #gender can be all, f or m or none
     cohort_careerage_df = pd.DataFrame(columns=["cohort_start_year", "career_age", "criterion", "gender", "values"])
     #cohort_careerage_df.set_index(["cohort_start_year", "career_age", "criterion", "gender"])
@@ -78,6 +82,8 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion)
         cohort_authors = cohort["author"].values
         cohort_size  = len(cohort_authors)
         
+        f.write("\n \n \n COHORT START YEAR: "+str(start_year)+"  ---  size:"+str(cohort_size)) 
+    
         # Problem: authors who do not publish in y year dont show up
         # we need to set their value to 0 or to the value of previous year (for cumulative calculation)   
         df_values = pd.DataFrame(cohort[['author', 'gender']])
@@ -88,6 +94,7 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion)
         # extract num publications/citations for the cohort in all future years
         age = 0
         for y in subsequent_years:
+            f.write("\n subsequent_year: "+str(y) )
         
             age = age+1
             values = pd.Series(data=0) #index=range(0, cohort_size)
@@ -113,6 +120,13 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion)
             #print("all_values for start_year:  "+str(start_year)+"  career_age: "+str(age)+" criterion: "+criterion+" gender: all" )
             #print(len(all_values))
             
+            #fraction of inactive people
+            num_inactive_people = len(df_values[criterion].astype("float").values) - len(temp[criterion].astype("float").values)
+            one_percent = len(df_values[criterion].astype("float").values)/100
+            fraction_inactive = num_inactive_people/one_percent
+            f.write(" fraction_inactive: "+str(fraction_inactive))
+                    
+                    
             cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year, 'career_age':age, 'criterion':criterion, 'gender':'all', 'values': all_values}, ignore_index=True)
                    
             
@@ -222,9 +236,7 @@ def plot_cumulative_dist(df, age, criterion, criteria_display):
     
 
     df_one_age = df[df["career_age"]==age]
-
     df_one_age = df_one_age[df_one_age["criterion"]==criterion]
-
     df_one_age = df_one_age[df_one_age["gender"]=='all']
  
     
@@ -244,7 +256,15 @@ def plot_cumulative_dist(df, age, criterion, criteria_display):
         #    print("****** YEAR: "+str(y)+"  ---  "+str(len(item)))
             
         df_one_age_one_cohort_values = np.sort(df_one_age_one_cohort["values"].values[0])
-        
+        cohort_values_frequency = Counter(df_one_age_one_cohort_values)
+        print("  year:"+str(y)+"    age: "+str(age))
+        print(cohort_values_frequency)
+                    
+        #careerLengthDist = df_one_age_one_cohort_values.groupby(["career_length"])['author'].count()
+        #temp = careerLengthDist.cumsum()  
+        #ax = temp.plot(grid=True, title='Cumulative histogram of Career Length by authors')
+        #ax.set_xlabel('Career Length')
+        #ax.set_ylabel('No. of Authors')
         #df_one_age_one_cohort_values_unique = np.unique(df_one_age_one_cohort_values)
         
         #normalize values to make them compareable across cohort
@@ -265,7 +285,7 @@ def plot_gini(cohort_size_gini, criterion, criteria_display):
     plt = init_plotting()
     
     fig1 = plt.figure()
-    #plt.ylim(0, 0.7)
+    plt.ylim(0.1, 1)
     
     fig1.patch.set_facecolor('white')
     ax1 = fig1.add_subplot(1,1,1) #axisbg="white"
@@ -291,8 +311,8 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
     # Plots: 
     # (2) fig2: mean (cumulative) number of publications/citations for each cohort over time,
     # (3) fig3: mean (cumulative) number of publications/citations for each cohort over time,
+ 
     
-   
     plt = init_plotting()
 
     #(2) fig2: mean (cumulative) number of publications/citations for each cohort over time,
@@ -324,15 +344,38 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
     ax_outside.set_xlabel('Career Age', labelpad=20, fontweight='bold') 
     ax_outside.set_ylabel('Mean '+criteria_display, labelpad=20, fontweight='bold')
 
-        
+    
+    highlighted_cohorts = []  
+    colors = ('b', 'g', 'r', 'c', 'm', 'y', 'k')
+    markers = []
+    for m in Line2D.markers:
+        try:
+            if len(m) == 1 and m != ' ':
+                markers.append(m)
+        except TypeError:
+            pass
+   
+
+   
+    p=0
     for year in cohort_start_years: 
+        
         cohort = data[data["cohort_start_year"]==year]
-        cohort = cohort[cohort["criterion"]==criterion]                                               
+        cohort = cohort[cohort["criterion"]==criterion]   
+       
         #cumnum_over_years = get_cohort_stats(df, year, max_years, criterion)
         #cohort_duration = np.arange(0,len(selected_gini_df["gini"].values)*step, step)
         
-        ax2.errorbar(cohort["age"], cohort["mean"].values,  yerr=cohort["sem"].values)
-   
+        #show some selected years in color and show legend for the
+        if(year%5 == 0):
+            ax2.errorbar(cohort["age"], cohort["mean"].values,  yerr=cohort["sem"].values, label=year, color=colors[p], marker=markers[p], 
+                         markersize=10)
+            highlighted_cohorts.append(year)
+            p = p+1 
+        else:
+            ax2.errorbar(cohort["age"], cohort["mean"].values,  yerr=cohort["sem"].values, color='grey')
+    
+  
         
         ## plots the mean of publication/citation gender wise for each cohort
         ax3[i,j] = plot_gender_numcum(ax3[i,j], cohort["age"], cohort, "mean")
@@ -348,9 +391,11 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
     ax2.set_ylabel("Mean "+criteria_display, fontweight='bold')
     ax2.set_xlabel('Career Age', fontweight='bold')
    
-
-    if len(cohort_start_years)<10:
-        ax2.legend(cohort_start_years)  
+    ax2.legend()
+    #if len(cohort_start_years)<10:
+    #    ax2.legend(cohort_start_years)  
+    #else:
+    #    ax2.legend(highlighted_cohorts)
 
     fig2.savefig("fig/mean_"+criterion+".png", facecolor=fig2.get_facecolor(), edgecolor='none', bbox_inches='tight')
     fig3.savefig("fig/mean_"+criterion+"_gender.png", facecolor=fig3.get_facecolor(), edgecolor='none', bbox_inches='tight')
@@ -386,7 +431,7 @@ def plot_cohort_size_gini_cor(data, criterion, criteria_display):
     ax_outside = fig.add_subplot(111, frameon=False)
     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
     ax_outside.set_xlabel('Cohort Size', labelpad=20, fontweight="bold") 
-    ax_outside.set_ylabel('Gini ('+criteria_display+')', labelpad=20, fontweight="bold")
+    ax_outside.set_ylabel('Gini '+criteria_display+'', labelpad=20, fontweight="bold")
     
     #(2) plot cor between cohort start year and gini
     fig2, ax2 = plt.subplots(nrows=nrows, ncols=cols, sharex=True, sharey=True, figsize=(16,10))
