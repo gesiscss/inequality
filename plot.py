@@ -510,21 +510,21 @@ def plot_gender_numcum(ax, cohort_duration, selected_cumnum_df, selected_stat):
     
     ax.plot(cohort_duration, selected_cumnum_df[selected_stat+"_f"].values,  label='women', color="red")
     if (selected_stat == "mean"):
-        ax.fill_between(cohort_duration, selected_cumnum_df["mean_f"].values-selected_cumnum_df["sem_f"].values, 
+        ax.fill_between(np.array(cohort_duration, dtype=float), selected_cumnum_df["mean_f"].values-selected_cumnum_df["sem_f"].values, 
                     selected_cumnum_df["mean_f"].values+selected_cumnum_df["sem_f"].values,
 					alpha=0.2, edgecolor='red', facecolor='red',
 					linewidth=4, linestyle='dashdot', antialiased=True)
     
     ax.plot(cohort_duration, selected_cumnum_df[selected_stat+"_m"].values,  label='men', color="blue")
     if(selected_stat == "mean"):
-        ax.fill_between(cohort_duration, selected_cumnum_df["mean_m"].values-selected_cumnum_df["sem_m"].values, 
+        ax.fill_between(np.array(cohort_duration, dtype=float), selected_cumnum_df["mean_m"].values-selected_cumnum_df["sem_m"].values, 
                     selected_cumnum_df["mean_m"].values+selected_cumnum_df["sem_m"].values,
 					alpha=0.2, edgecolor='blue', facecolor='blue',
 					linewidth=4, linestyle='dashdot', antialiased=True)
 
     ax.plot(cohort_duration, selected_cumnum_df[selected_stat+"_n"].values,  label='unknown', color="grey")
     if(selected_stat == "mean"):
-        ax.fill_between(cohort_duration, selected_cumnum_df["mean_n"].values-selected_cumnum_df["sem_n"].values, 
+        ax.fill_between(np.array(cohort_duration, dtype=float), selected_cumnum_df["mean_n"].values-selected_cumnum_df["sem_n"].values, 
                     selected_cumnum_df["mean_n"].values+selected_cumnum_df["sem_n"].values,
 					alpha=0.2, edgecolor='grey', facecolor='grey',
 					linewidth=4, linestyle='dashdot', antialiased=True) 
