@@ -65,6 +65,8 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, career_length, crit
     
     
 def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion):
+    # max_career_age is actually career_length. Lets try to override to 10
+    max_career_age = 10
     #returns a dataframe: cohort start year, career age, gender, distribution of values (num pub or cum num pub or num cit or cum num cit) 
     # save fraction of inactive authors per year
     
@@ -75,7 +77,7 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion)
     cohort_careerage_df = pd.DataFrame(columns=["cohort_start_year", "career_age", "criterion", "gender", "values"])
     #cohort_careerage_df.set_index(["cohort_start_year", "career_age", "criterion", "gender"])
 
-    print(data.head(3))
+#     print(data.head(3))
     for start_year in cohort_start_years: 
         cohort = data[data["start_year"]==start_year]
         #print(cohort.head(100))
@@ -354,7 +356,7 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
 
     
     highlighted_cohorts = []  
-    colors = ('b', 'g', 'r', 'c', 'm', 'y', 'k')
+    colors = ('#DE4C2C', '#3BD64C', '#3B9ED6', '#B73BD6', '#F39C12', '#27AE60', '#AAB7B8', '#48C9B0', '#F4D03F')
     markers = []
     for m in Line2D.markers:
         try:
@@ -376,8 +378,8 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
         
         #show some selected years in color and show legend for the
         if(year%5 == 0):
-            ax2.errorbar(cohort["age"], cohort["mean"].values,  yerr=cohort["sem"].values, label=year, color=colors[p], marker=markers[p], 
-                         markersize=10)
+            ax2.errorbar(cohort["age"], cohort["mean"].values,  yerr=cohort["sem"].values, label=year, color=colors[p],
+                         marker=markers[p], markersize=10)
             highlighted_cohorts.append(year)
             p = p+1 
         else:
