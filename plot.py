@@ -383,7 +383,7 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
             highlighted_cohorts.append(year)
             p = p+1 
         else:
-            ax2.errorbar(cohort["age"], cohort["mean"].values,  yerr=cohort["sem"].values, color='grey')
+            ax2.errorbar(cohort["age"], cohort["mean"].values,  yerr=cohort["sem"].values, color='grey', alpha=0.5)
     
   
         
@@ -430,6 +430,9 @@ def plot_cohort_size_gini_cor(data, criterion, criteria_display):
     
     unique_career_ages = np.unique(data["age"])
     max_years = np.max(unique_career_ages)
+    print("plot_cohort_size_gini_cor ---  unique_career_ages:")
+    print(unique_career_ages)
+    
     if(max_years >= 15):
         cols = 5
     else:
