@@ -356,7 +356,7 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
 
     
     highlighted_cohorts = []  
-    colors = ('#DE4C2C', '#3BD64C', '#3B9ED6', '#B73BD6', '#F39C12', '#27AE60', '#AAB7B8', '#48C9B0', '#F4D03F')
+    colors = ('#DE4C2C', '#3BD64C', '#3B9ED6', '#B73BD6', '#F39C12', '#27AE60', '#AAB7B8', '#48C9B0', '#071019')
     markers = []
     for m in Line2D.markers:
         try:
