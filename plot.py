@@ -66,7 +66,7 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, career_length, crit
     
 def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion):
     # max_career_age is actually career_length. Lets try to override to 10
-    max_career_age = 10
+    max_career_age = 15
     #returns a dataframe: cohort start year, career age, gender, distribution of values (num pub or cum num pub or num cit or cum num cit) 
     # save fraction of inactive authors per year
     
