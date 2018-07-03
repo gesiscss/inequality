@@ -2,3 +2,4 @@ fig/
 data/
 .ipynb_checkpoints/
 __pycache__/
+derived-data/
