@@ -475,18 +475,18 @@ def plot_cohort_size_gini_cor(data, criterion, criteria_display):
                          ignore_index=True)
          
         eps = np.finfo(np.float32).eps 
-        ax2[i,j].scatter(temp["cohort_start_year"], temp["gini"],  c="r", s=6)
+        ax2[i,j].scatter(temp["cohort_start_year"], temp["gini"],  c="b", s=6)
         m, b = np.polyfit(np.float32(temp["cohort_start_year"]), temp["gini"], 1, rcond = len(temp["cohort_start_year"])*eps)
-        ax2[i,j].plot(temp["cohort_start_year"], m*temp["cohort_start_year"] + b, '-')
+        ax2[i,j].plot(temp["cohort_start_year"], m*temp["cohort_start_year"] + b, '-', c="C7")
         ax2[i,j].set_title("Age "+str(int(age))+" (c="+str(np.around(pcor2[0], decimals=2))+" p="+str(np.around(pcor2[1],decimals=3))+")", fontsize=12, fontweight="bold")
         #ax2[i,j].text(1975, 0.16, "cor="+str(np.around(pcor2[0], decimals=2))+" p="+str(np.around(pcor2[1],decimals=2)))
         labels =  ax2[i,j].get_xticklabels()
         plt.setp(labels,  rotation=45, fontsize=12, figure=fig2)
         
 
-        ax[i,j].scatter(temp["cohort_size"], temp["gini"],  c="r", s=6)
+        ax[i,j].scatter(temp["cohort_size"], temp["gini"],  c="b", s=6)
         m, b = np.polyfit(np.float32(temp["cohort_size"]), temp["gini"], 1, rcond = len(temp["cohort_start_year"])*eps)
-        ax[i,j].plot(temp["cohort_size"], m*temp["cohort_size"] + b, '-')
+        ax[i,j].plot(temp["cohort_size"], m*temp["cohort_size"] + b, '-', c='C7')
         ax[i,j].set_title("Age "+str(int(age))+" (c="+str(np.around(pcor[0], decimals=2))+" p="+str(np.around(pcor[1],decimals=3))+")", fontsize=12, fontweight="bold")
         #ax[i,j].text(0.002, 0.16, "cor="+str(np.around(pcor[0], decimals=2))+" p="+str(np.around(pcor[1],decimals=2)))
         labels =  ax[i,j].get_xticklabels()
