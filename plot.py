@@ -54,13 +54,23 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     cohort_careerage_df = get_cohort_careerage_df(groupByYearData, cohort_start_years, max_career_age_cohort, criterion)
     
     #gini
-    cohort_size_gini = get_cohort_gini(cohort_careerage_df,criterion)
+    cohort_size_gini = get_cohort_gini(cohort_careerage_df,criterion, cohort_careerage_df["cohort_start_year"].unique())
+    #cohort_size_gini = get_cohort_gini(cohort_careerage_df,criterion, np.array([1970, 1980, 1990, 2000]))
+    
+    
     plot_gini(cohort_size_gini, criterion, criterion_display)
     plot_cohort_size_gini_cor(cohort_size_gini,  criterion, criterion_display)
     
     # mean/std/median
     stats = get_cohort_stats(cohort_careerage_df, criterion)
     plot_cohort_means_over_ages(stats, criterion, criterion_display)
+    
+    # plot overall gini for all authors that started between 1970 and 2000, ignore cohorts
+    cohort_size_gini = get_cohort_gini(cohort_careerage_df,criterion, np.array([1970, 2000]))
+    plot_gini(cohort_size_gini, criterion+"_ALL_AUTHORS", criterion_display)
+    
+    cohort_size_gini = get_cohort_gini(cohort_careerage_df,criterion, np.array([1970, 1980, 1990, 2000]))
+    plot_gini(cohort_size_gini, criterion+"_COHORTS_10_YEARS", criterion_display)
     
     
     
@@ -153,15 +163,25 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion)
     return cohort_careerage_df
                
       
-        
-def get_cohort_gini(data, criterion):
+# get gini for each year or intervals longer than a year        
+def get_cohort_gini(data, criterion, start_years):
     # input dataframe: cohort start year, career age, gender, distribution of values (num pub or cum num pub or num cit or cum num cit) 
     # cohort_size_gini: stores cohort start year, cohort size, career age and gini
        
     cohort_size_gini = pd.DataFrame(columns=["cohort_start_year", "cohort_size", "age", "gini"])
           
-    for start_year in data["cohort_start_year"].unique():
-        cohort = data[data["cohort_start_year"] == start_year]
+    #for start_year in start_years:
+    i=0
+    while i in range(0, (len(start_years)-1)):
+        start_year_start = start_years[i]
+        start_year_end =  start_years[i+1] 
+        i = i+1
+        #print("start_year_start: "+str(start_year_start)+"  start_year_end: "+str(start_year_end))
+        
+        #cohort = data[data["cohort_start_year"] == start_year]
+        data = data[data["cohort_start_year"] >= start_year_start]
+        cohort = data[data["cohort_start_year"] < start_year_end]
+        
         cohort = cohort[cohort["criterion"] == criterion]
         
         for age in np.unique(cohort["career_age"]):
@@ -175,10 +195,10 @@ def get_cohort_gini(data, criterion):
             
             if(len(values)>0):
                 gini = calculate.gini(values)
-                cohort_size_gini = cohort_size_gini.append({'cohort_start_year': start_year, 'cohort_size':len(values), 'age': age, 'gini': gini}, ignore_index=True) 
+                cohort_size_gini = cohort_size_gini.append({'cohort_start_year': start_year_start, 'cohort_size':len(values), 'age': age, 'gini': gini}, ignore_index=True) 
             else:
                 print("Here no values for gini calculation found!!!!!!!!!!!!!!!!!!!")
-                cohort_size_gini = cohort_size_gini.append({'cohort_start_year': start_year, 'cohort_size':len(values), 'age': age, 'gini': np.nan}, ignore_index=True)       
+                cohort_size_gini = cohort_size_gini.append({'cohort_start_year': start_year_start, 'cohort_size':len(values), 'age': age, 'gini': np.nan}, ignore_index=True)       
     
     
     # save gini results for cohort
@@ -290,8 +310,7 @@ def plot_cumulative_dist(df, age, criterion, criteria_display):
 
          
 def plot_gini(cohort_size_gini, criterion, criteria_display):
-    #input  dataframe ["cohort_start_year", "cohort_size", "age", "gini"])
-    
+    #input  dataframe ["cohort_start_year", "cohort_size", "age", "gini"])   
     plt = init_plotting()
     
     fig1 = plt.figure()
@@ -306,12 +325,12 @@ def plot_gini(cohort_size_gini, criterion, criteria_display):
 
         ax1.plot(selected_cohort["age"], selected_cohort["gini"])
         
-  
     ax1.set_ylabel('Gini ('+criteria_display+')', fontweight='bold')
     ax1.set_xlabel('Career Age', fontweight='bold')
     
-    if len(cohort_start_years)<10:
+    if ((len(cohort_start_years)<10) & (len(cohort_start_years)>1)):
         ax1.legend(cohort_start_years)  
+    plt.show()
     fig1.savefig("fig/gini_"+criterion+".png", facecolor=fig1.get_facecolor(), edgecolor='none', bbox_inches='tight')
     plt.close(fig1)
 
