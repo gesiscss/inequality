@@ -50,8 +50,8 @@ def init_plotting():
     return plt
 
 
-def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, criterion_display):
-    cohort_careerage_df = get_cohort_careerage_df(groupByYearData, cohort_start_years, max_career_age_cohort, criterion)
+def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, criterion_display, authorStartEndCareerData):
+    cohort_careerage_df = get_cohort_careerage_df(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, authorStartEndCareerData)
     
     #gini
     cohort_size_gini = get_cohort_gini(cohort_careerage_df,criterion, cohort_careerage_df["cohort_start_year"].unique())
@@ -66,16 +66,15 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     plot_cohort_means_over_ages(stats, criterion, criterion_display)
     
     # plot overall gini for all authors that started between 1970 and 2000, ignore cohorts
-    cohort_size_gini = get_cohort_gini(cohort_careerage_df,criterion, np.array([1970, 2000]))
+    cohort_size_gini = get_cohort_size_gini(cohort_careerage_df,criterion, np.array([1970, 2000]))
     plot_gini(cohort_size_gini, criterion+"_ALL_AUTHORS", criterion_display)
     
-    cohort_size_gini = get_cohort_gini(cohort_careerage_df,criterion, np.array([1970, 1980, 1990, 2000]))
+    cohort_size_gini = get_cohort_size_gini(cohort_careerage_df,criterion, np.array([1970, 1980, 1990, 2000]))
     plot_gini(cohort_size_gini, criterion+"_COHORTS_10_YEARS", criterion_display)
     
     
     
-def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion):
-    # max_career_age is actually career_length. Lets try to override to 10
+def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion, authorStartEndCareerData):
     #max_career_age = 15
     #returns a dataframe: cohort start year, career age, gender, distribution of values (num pub or cum num pub or num cit or cum num cit) 
     # save fraction of inactive authors per year
@@ -91,52 +90,44 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion)
     for start_year in cohort_start_years: 
         cohort = data[data["start_year"]==start_year]
         #print(cohort.head(100))
-        cohort_authors = cohort["author"].values
-       
-        unique_cohort_authors = cohort["author"].unique()
+        cohort_authors = authorStartEndCareerData[authorStartEndCareerData.start_year == start_year]
         # BUG we have multiple entries per author
-        #cohort_size  = len(cohort_authors)
-        cohort_size  = len(unique_cohort_authors)
-        
+        cohort_size  = cohort_authors.shape[0]
+        # cohort_size  = len(unique_cohort_authors)
         f.write("\n \n \n COHORT START YEAR: "+str(start_year)+"  ---  size:"+str(cohort_size)) 
-    
-       
         subsequent_years = [(start_year+i) for i in range(0, max_career_age)]
         
         # extract num publications/citations for the cohort in all future years
-        age = 0
+        age = 1
+        prev_value = [0.0] * cohort_size
         for y in subsequent_years:
             f.write("\n subsequent_year: "+str(y) )
         
-            age = age+1
-            values = pd.Series(data=0) #index=range(0, cohort_size)
-            
             temp = cohort[cohort["year"]==y]
             active_people = len(temp["author"].values)
             
             # Problem: authors who do not publish in y year dont show up; only in first year everyone is active per definition!
-            # we need to set their value to 0 or to the value of previous year (for cumulative calculation)   
-            df_values = pd.DataFrame(temp[['author', 'gender']])
-            df_values['prev_value'] = [0.0]* df_values.shape[0]
+            # we need to set their value to 0 or to the value of previous year (for cumulative calculation) 
+            df_values = cohort_authors[['author', 'gender']].merge(temp[['author', criterion]], on='author', how='left')
+            df_values['prev_value'] = prev_value
+#             print(df_values.tail())
 
-            
             # make sure cohort is not shrinking
-            df_values = pd.merge(df_values[['author', 'prev_value']],temp[['author','gender',criterion]], how='left', on='author')
-      
+            # df_values = pd.merge(df_values[['author', 'prev_value']],temp[['author','gender',criterion]], how='left', on='author')
+            
             #Take the current values. If NaN or None then consider the previous values
+            
             df_values[criterion] = df_values[criterion].combine_first(df_values['prev_value'])
-        
+#             print(df_values.tail())
       
             # If it is cumulative then previous values is set with current
             # Otherwise previous value will always be 0
             # 
             # this dataframe contains num_pub and cum_num_pub as row, but if criterion is cum_ then only cum_ col will be updated!
             #
-            if(criterion.startswith('cum_')) :
-                df_values['prev_value'] = df_values[criterion]
+            if(criterion.startswith('cum_')):
+                prev_value = df_values[criterion]
 
-     
-            
             all_values = df_values[criterion].astype("float").values
             #print("all_values for start_year:  "+str(start_year)+"  career_age: "+str(age)+" criterion: "+criterion+" gender: all" )
             #print(len(all_values))
@@ -157,14 +148,14 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion)
             cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year, 'career_age':age, 'criterion':criterion, 'gender':'m', 'values': temp_male[criterion].astype("float").values}, ignore_index=True)
             cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year, 'career_age':age, 'criterion':criterion, 'gender':'f', 'values': temp_female[criterion].astype("float").values}, ignore_index=True)
             cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year, 'career_age':age, 'criterion':criterion, 'gender':'none', 'values': temp_none[criterion].astype("float").values}, ignore_index=True)
-
-    
+            
+            age = age+1
     
     return cohort_careerage_df
                
       
 # get gini for each year or intervals longer than a year        
-def get_cohort_gini(data, criterion, start_years):
+def get_cohort_size_gini(data, criterion, start_years):
     # input dataframe: cohort start year, career age, gender, distribution of values (num pub or cum num pub or num cit or cum num cit) 
     # cohort_size_gini: stores cohort start year, cohort size, career age and gini
        
