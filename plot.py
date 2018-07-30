@@ -54,7 +54,7 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     cohort_careerage_df = get_cohort_careerage_df(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, authorStartEndCareerData)
     
     #gini
-    cohort_size_gini = get_cohort_gini(cohort_careerage_df,criterion, cohort_careerage_df["cohort_start_year"].unique())
+    cohort_size_gini = get_cohort_size_gini(cohort_careerage_df,criterion, cohort_careerage_df["cohort_start_year"].unique())
     #cohort_size_gini = get_cohort_gini(cohort_careerage_df,criterion, np.array([1970, 1980, 1990, 2000]))
     
     
