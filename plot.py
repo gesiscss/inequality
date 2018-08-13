@@ -63,6 +63,8 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     
     # mean/std/median
     stats = get_cohort_stats(cohort_careerage_df, criterion)
+    prints(stats.head(n=1))
+    plot_cohort_gender_diffs(stats, criterion, criterion_display)
     plot_cohort_means_over_ages(stats, criterion, criterion_display)
     
     # plot overall gini for all authors that started between 1970 and 2000, ignore cohorts
@@ -75,36 +77,26 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     
     
 def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion, authorStartEndCareerData):
-    #max_career_age = 15
     #returns a dataframe: cohort start year, career age, gender, distribution of values (num pub or cum num pub or num cit or cum num cit) 
-    # save fraction of inactive authors per year
-    
-    f = open('fig/inactive_'+criterion+'.txt','w') 
-
-   
+  
     #gender can be all, f or m or none
     cohort_careerage_df = pd.DataFrame(columns=["cohort_start_year", "career_age", "criterion", "gender", "values"])
-    #cohort_careerage_df.set_index(["cohort_start_year", "career_age", "criterion", "gender"])
 
-#     print(data.head(3))
     for start_year in cohort_start_years: 
         cohort = data[data["start_year"]==start_year]
-        #print(cohort.head(100))
+      
         cohort_authors = authorStartEndCareerData[authorStartEndCareerData.start_year == start_year]
-        # BUG we have multiple entries per author
-        cohort_size  = cohort_authors.shape[0]
-        # cohort_size  = len(unique_cohort_authors)
-        f.write("\n \n \n COHORT START YEAR: "+str(start_year)+"  ---  size:"+str(cohort_size)) 
+        cohort_size  = cohort_authors.author.nunique()
+        
+        #print("\n \n \n COHORT START YEAR: "+str(start_year)+"  ---  size:"+str(cohort_size)) 
         subsequent_years = [(start_year+i) for i in range(0, max_career_age)]
         
         # extract num publications/citations for the cohort in all future years
         age = 1
         prev_value = [0.0] * cohort_size
         for y in subsequent_years:
-            f.write("\n subsequent_year: "+str(y) )
-        
             temp = cohort[cohort["year"]==y]
-            active_people = len(temp["author"].values)
+            active_people = temp["author"].nunique()
             
             # Problem: authors who do not publish in y year dont show up; only in first year everyone is active per definition!
             # we need to set their value to 0 or to the value of previous year (for cumulative calculation) 
@@ -118,7 +110,7 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion,
             #Take the current values. If NaN or None then consider the previous values
             
             df_values[criterion] = df_values[criterion].combine_first(df_values['prev_value'])
-#             print(df_values.tail())
+            #print(df_values.tail())
       
             # If it is cumulative then previous values is set with current
             # Otherwise previous value will always be 0
@@ -129,14 +121,14 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion,
                 prev_value = df_values[criterion]
 
             all_values = df_values[criterion].astype("float").values
-            #print("all_values for start_year:  "+str(start_year)+"  career_age: "+str(age)+" criterion: "+criterion+" gender: all" )
-            #print(len(all_values))
             
+          
             #fraction of inactive people
-            one_percent = cohort_size/100
-            fraction_inactive = (cohort_size-active_people)/one_percent
-            f.write(" fraction_inactive: "+str(fraction_inactive))
-                    
+            #one_percent = cohort_size/100
+            #fraction_inactive = (cohort_size - active_people)/one_percent
+            #print(" fraction_inactive: "+str(fraction_inactive) +" in year "+str(y))
+            #print("all_values for start_year:  "+str(start_year)+"  career_age: "+str(age)+" criterion: "+criterion+" gender: all, values "+ str(len(all_values)))
+                   
                     
             cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year, 'career_age':age, 'criterion':criterion, 'gender':'all', 'values': all_values}, ignore_index=True)
                    
@@ -150,7 +142,16 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion,
             cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year, 'career_age':age, 'criterion':criterion, 'gender':'none', 'values': temp_none[criterion].astype("float").values}, ignore_index=True)
             
             age = age+1
-    
+        
+        
+       
+            # test a guy that is in cohort 2001
+            # 'maseka lesaoana published 2 publications in total, one in 2001 and one in 2015
+            # every year she got some citations
+            #if start_year == 2001:
+            #    print("+++++++++++++++ cohort 2001 +++++++++++++++++++++++++")
+            #    print(df_values[df_values["author"] == '\'maseka lesaoana'])
+ 
     return cohort_careerage_df
                
       
@@ -305,7 +306,7 @@ def plot_gini(cohort_size_gini, criterion, criteria_display):
     plt = init_plotting()
     
     fig1 = plt.figure()
-    plt.ylim(0.1, 1)
+    #plt.ylim(0.1, 1)
     
     fig1.patch.set_facecolor('white')
     ax1 = fig1.add_subplot(1,1,1) #axisbg="white"
@@ -326,6 +327,35 @@ def plot_gini(cohort_size_gini, criterion, criteria_display):
     plt.close(fig1)
 
     
+def plot_cohort_gender_diffs(data, criterion, criteria_display):
+   
+    plt = init_plotting()
+
+    fig2 = plt.figure()
+    fig2.patch.set_facecolor('white')
+    ax2 = fig2.add_subplot(1,1,1) #, axisbg="white"
+
+    cohort_start_years = np.unique(data["cohort_start_year"].values)
+    
+   
+    highlighted_cohorts = []  
+    colors = ('#DE4C2C', '#3BD64C', '#3B9ED6', '#B73BD6', '#F39C12', '#FFC0CB', '#27AE60', '#48C9B0', '#071019') #'#AAB7B8',
+    markers = []
+    for m in Line2D.markers:
+        try:
+            if len(m) == 1 and m != ' ':
+                markers.append(m)
+        except TypeError:
+            pass
+ 
+    for year in cohort_start_years: 
+        
+        cohort = data[data["cohort_start_year"]==year]
+        cohort = cohort[cohort["criterion"]==criterion]   
+        print(cohort.head())
+        print(calculate.cohen_d(cohort["mean_m"].values, cohort["mean_f"].values, cohort["std_m"].values, cohort["std_f"].values))
+        
+       
     
 def plot_cohort_means_over_ages(data, criterion, criteria_display):
     # Plots: 
@@ -383,6 +413,10 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
         cohort = data[data["cohort_start_year"]==year]
         cohort = cohort[cohort["criterion"]==criterion]   
        
+        # compute cliff d between  distr of means over career ages
+        cliffd_m_f = calculate.cliffsD(cohort["mean_m"].values, cohort["mean_f"].values)
+      
+        
         #cumnum_over_years = get_cohort_stats(df, year, max_years, criterion)
         #cohort_duration = np.arange(0,len(selected_gini_df["gini"].values)*step, step)
         
@@ -400,7 +434,8 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
         ## plots the mean of publication/citation gender wise for each cohort
         ax3[i,j] = plot_gender_numcum(ax3[i,j], cohort["age"], cohort, "mean")
         
-        ax3[i,j].set_title(str(year), fontsize=12, fontweight="bold")
+        
+        ax3[i,j].set_title(str(year)+"("+str(np.round(cliffd_m_f))+")", fontsize=12, fontweight="bold")
    
         if (j<cols-1):
             j = j+1
@@ -543,6 +578,8 @@ def plot_gender_numcum(ax, cohort_duration, selected_cumnum_df, selected_stat):
                     selected_cumnum_df["mean_n"].values+selected_cumnum_df["sem_n"].values,
 					alpha=0.2, edgecolor='grey', facecolor='grey',
 					linewidth=4, linestyle='dashdot', antialiased=True) 
+    
+    
     return ax
 	
 	
@@ -719,4 +756,17 @@ def plot_cohort_participation_year_wise_for(authorScientificYearStartEnd, data, 
         ax2.set_ylabel(y_axis_label)
         ax2.set_yscale('log')
 
+    plt.show()
+    
+    
+def plot_cliffs_delta(cliffsD_cohorts, p1, p2, p3):
+    x = cliffsD_cohorts['start_year']
+    y = cliffsD_cohorts['cliffsD']
+    plt.scatter(x, y)
+    fit = np.polyfit(x, y, deg=1)
+    plt.plot(x, fit[0] * x + fit[1], color='C1')
+    plt.plot(x, [0]*len(x), color='C2')
+    plt.title("Cliff's Delta for "+p1+" and "+p2+" for "+p3)
+    plt.xlabel('Cohort start year')
+    plt.ylabel("Cliff's Delta")
     plt.show()

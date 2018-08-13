@@ -2,6 +2,37 @@
 #https://github.com/oliviaguest/gini
 import numpy  as np
 import pandas as pd
+
+
+from numpy import std, mean, sqrt
+
+
+#correct if the population S.D. is expected to be equal for the two groups.
+def cohen_d(x_means,y_means, x_std, y_std):
+    nx = len(x_means)
+    ny = len(y_means)
+    dof = nx + ny - 2
+    res = []
+    for i in range(1, nx):      
+        res[i] = (x_mean[i] - y_mean[i]) / sqrt(((nx-1)* x_std[i] ** 2 + (ny-1)* y_std[i] ** 2) / dof)
+        i = i+1
+    return res
+
+def cliffsD(ser1, ser2):
+    # only small integer values!
+    np_1 = np.array(ser1, dtype=np.int8)
+    np_2 = np.array(ser2, dtype=np.int8)
+    return np.mean(np.sign(np_1[:, None] - np_2).mean(axis=1))
+
+def cliffs_delta_cohorts(data, column, val1, val2, criterion, years):
+    cliffsD_lst = []
+    for start_year in years:
+        data1 = data[data.start_year == start_year]
+        cliffsd = cliffsD(data1[data1[column] == val1][criterion], data1[data1[column] == val2][criterion])
+        cliffsD_lst.append([start_year, cliffsd])
+    cliffsD_cohorts = pd.DataFrame(columns=['start_year', 'cliffsD'], data=cliffsD_lst)
+    return cliffsD_cohorts
+
 def gini(array):
     
     #"""Calculate the Gini coefficient of a numpy array."""
@@ -50,7 +81,7 @@ def groupDataAndCalculateCumulativeValues(data, group_year, criterion):
         # It is designed in such a way that it was by default leaving the label for the last group. In order to fix this issue, 
         # an extra bin is added to the last, so that, the second last (which is the actual last with respect to this context) is preserved
         
-        # this max_year is used only for grouping - so no worries :-)
+        # this max_year is used only for grouping - so no worries :-) --> WHY 2*GROUP_YEAR???
         max_year = data['year'].max() + 2*group_year 
         yearGroups = range(min_year, max_year, group_year)
         
