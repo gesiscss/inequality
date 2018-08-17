@@ -63,7 +63,7 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     
     # mean/std/median
     stats = get_cohort_stats(cohort_careerage_df, criterion)
-    prints(stats.head(n=1))
+    print(stats.head(n=1))
     plot_cohort_gender_diffs(stats, criterion, criterion_display)
     plot_cohort_means_over_ages(stats, criterion, criterion_display)
     
@@ -73,6 +73,15 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     
     cohort_size_gini = get_cohort_size_gini(cohort_careerage_df,criterion, np.array([1970, 1980, 1990, 2000]))
     plot_gini(cohort_size_gini, criterion+"_COHORTS_10_YEARS", criterion_display)
+    
+    # plot effect size 
+    cohort_effect_size = get_cohort_effect_size(cohort_careerage_df)
+    plot_cohort_effect_size(cohort_effect_size)
+    
+    
+def get_cohort_effect_size(cohort_careerage_df, group_a='m', group_b='f'):
+    data = cohort_careerage_df[cohort_careerage_df.gender.isin([group_a, group_b])]
+    return data.groupby(['cohort_start_year', 'career_age'])['values'].apply(lambda x: mann_whitney_effect_size(x.iloc[0],x.iloc[1], effect_formula='r'))
     
     
     
@@ -145,7 +154,7 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion,
         
         
        
-            # test a guy that is in cohort 2001
+            # test a guy(girl) that is in cohort 2001
             # 'maseka lesaoana published 2 publications in total, one in 2001 and one in 2015
             # every year she got some citations
             #if start_year == 2001:
@@ -352,48 +361,30 @@ def plot_cohort_gender_diffs(data, criterion, criteria_display):
         
         cohort = data[data["cohort_start_year"]==year]
         cohort = cohort[cohort["criterion"]==criterion]   
-        print(cohort.head())
-        print(calculate.cohen_d(cohort["mean_m"].values, cohort["mean_f"].values, cohort["std_m"].values, cohort["std_f"].values))
-        
+#         print(cohort.head())
+        # print(calculate.cohen_d(cohort["mean_m"].values, cohort["mean_f"].values, cohort["std_m"].values, cohort["std_f"].values))
+        # buggs in calculate.cohen_d
        
     
 def plot_cohort_means_over_ages(data, criterion, criteria_display):
     # Plots: 
-    # (2) fig2: mean (cumulative) number of publications/citations for each cohort over time,
-    # (3) fig3: mean (cumulative) number of publications/citations for each cohort over time,
+    # (2) fig2: mean (cumulative) number of publications/citations for - single plot,
+    # x - career age
+    # highlighting certain cohorts
+    
+    # (3) fig3: mean (cumulative) number of publications/citations for each cohort over career ages - grid of plots,
+    # x - career age
+    # colors indicate gender (m/f/none)
  
     
     plt = init_plotting()
 
-    #(2) fig2: mean (cumulative) number of publications/citations for each cohort over time,
+    #(2) fig2
+    # ==============================================#
     fig2 = plt.figure()
     fig2.patch.set_facecolor('white')
     ax2 = fig2.add_subplot(1,1,1) #, axisbg="white"
-
-   
-    i=0 # to point to the right figure
-    j=0
     
-     # rearange subplots dynamically
-    cols=2
-    cohort_start_years = np.unique(data["cohort_start_year"].values)
-    
-    # 15 cohorts
-    if(len(cohort_start_years)>10):
-        cols=6
-    
-    nrows = math.ceil(float(len(cohort_start_years))/float(cols))
-    nrows = int(nrows)
-    
-    # (3) fig3: mean (cumulative) number of publications/citations for each cohort over time
-    fig3, ax3 = plt.subplots(nrows, cols, sharex=True, sharey='row', figsize=(16,10)) #sharey=True, 
-    # Create a big subplot to created axis labels that scale with figure size
-    ax_outside = fig3.add_subplot(111, frameon=False)
-    # hide tick and tick label of the big axes
-    plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
-    ax_outside.set_xlabel('Career Age', labelpad=20, fontweight='bold') 
-    ax_outside.set_ylabel('Mean '+criteria_display, labelpad=20, fontweight='bold')
-
     
     highlighted_cohorts = []  
     colors = ('#DE4C2C', '#3BD64C', '#3B9ED6', '#B73BD6', '#F39C12', '#FFC0CB', '#27AE60', '#48C9B0', '#071019') #'#AAB7B8',
@@ -403,10 +394,34 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
             if len(m) == 1 and m != ' ':
                 markers.append(m)
         except TypeError:
+            print("Typeerror occured")
             pass
-   
+    
+    
+    #(3) fig3
+    # ==============================================#
+    i=0 # to point to the right figure
+    j=0
+    
+    # rearange subplots dynamically
+    cols=2
+    cohort_start_years = np.unique(data["cohort_start_year"].values)
+    
+    # 15 cohorts
+    if(len(cohort_start_years)>10):
+        cols=6
+    
+    nrows = math.ceil(float(len(cohort_start_years))/float(cols))
+    nrows = int(nrows)
 
-   
+    fig3, ax3 = plt.subplots(nrows, cols, sharex=True, sharey='row', figsize=(16,10)) #sharey=True, 
+    # Create a big subplot to created axis labels that scale with figure size
+    ax_outside = fig3.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+    ax_outside.set_xlabel('Career Age', labelpad=20, fontweight='bold') 
+    ax_outside.set_ylabel('Mean '+criteria_display, labelpad=20, fontweight='bold')
+
     p=0
     for year in cohort_start_years: 
         
@@ -416,10 +431,11 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
         # compute cliff d between  distr of means over career ages
         cliffd_m_f = calculate.cliffsD(cohort["mean_m"].values, cohort["mean_f"].values)
       
-        
         #cumnum_over_years = get_cohort_stats(df, year, max_years, criterion)
         #cohort_duration = np.arange(0,len(selected_gini_df["gini"].values)*step, step)
         
+        #(2) fig2
+        # ==============================================#
         #show some selected years in color and show legend for the
         if(year%5 == 0):
             ax2.errorbar(cohort["age"], cohort["mean"].values,  yerr=cohort["sem"].values, label=year, color=colors[p],
@@ -429,11 +445,10 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
         else:
             ax2.errorbar(cohort["age"], cohort["mean"].values,  yerr=cohort["sem"].values, color='grey', alpha=0.5)
     
-  
-        
+        #(3) fig3
+        # ==============================================# 
         ## plots the mean of publication/citation gender wise for each cohort
         ax3[i,j] = plot_gender_numcum(ax3[i,j], cohort["age"], cohort, "mean")
-        
         
         ax3[i,j].set_title(str(year)+"("+str(np.round(cliffd_m_f))+")", fontsize=12, fontweight="bold")
    

@@ -14,7 +14,7 @@ def cohen_d(x_means,y_means, x_std, y_std):
     dof = nx + ny - 2
     res = []
     for i in range(1, nx):      
-        res[i] = (x_mean[i] - y_mean[i]) / sqrt(((nx-1)* x_std[i] ** 2 + (ny-1)* y_std[i] ** 2) / dof)
+        res[i] = (x_means[i] - y_means[i]) / sqrt(((nx-1)* x_std[i] ** 2 + (ny-1)* y_std[i] ** 2) / dof)
         i = i+1
     return res
 
