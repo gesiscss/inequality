@@ -81,8 +81,9 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     
 def get_cohort_effect_size(cohort_careerage_df, group_a='m', group_b='f'):
     data = cohort_careerage_df[cohort_careerage_df.gender.isin([group_a, group_b])]
-    return data.groupby(['cohort_start_year', 'career_age'])['values'].apply(lambda x: mann_whitney_effect_size(x.iloc[0],x.iloc[1], effect_formula='r'))
-    
+    data = data.groupby(['cohort_start_year', 'career_age'])['values'].apply(lambda x: (x.iloc[0], x.iloc[1])).reset_index()
+    data['effect'], data['statistic'], data['pvalue'] = zip(*data['values'].apply(lambda x: calculate.mann_whitney_effect_size(x[0],x[1], effect_formula='r')))
+    return data
     
     
 def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion, authorStartEndCareerData):

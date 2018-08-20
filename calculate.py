@@ -2,12 +2,29 @@
 #https://github.com/oliviaguest/gini
 import numpy  as np
 import pandas as pd
-
+from scipy.stats import mannwhitneyu
+import math
 
 from numpy import std, mean, sqrt
 
 
 #correct if the population S.D. is expected to be equal for the two groups.
+
+def mann_whitney_effect_size(a, b, alternative='two-sided', effect_formula='r'):
+    n1 = len(a)
+    n2 = len(b)
+    statistic, pvalue = mannwhitneyu(a, b, alternative=alternative)
+    z = (statistic-(n1*n2/2))/(math.sqrt(n1*n2*(n1+n2+1)/12))
+#     print('n1,n2: ',n1,n2)
+#     print("u: ", statistic)
+#     print("z: ", z)
+#     print("p: ", pvalue)
+    if effect_formula == 'r':
+        effect = z/math.sqrt(n1+n2)
+    elif effect_formula == 'eta':
+        effect = (z**2)/(n1+n2-1)
+    return abs(effect), statistic, pvalue
+
 def cohen_d(x_means,y_means, x_std, y_std):
     nx = len(x_means)
     ny = len(y_means)
