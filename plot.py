@@ -57,25 +57,31 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     cohort_size_gini = get_cohort_size_gini(cohort_careerage_df,criterion, cohort_careerage_df["cohort_start_year"].unique())
     #cohort_size_gini = get_cohort_gini(cohort_careerage_df,criterion, np.array([1970, 1980, 1990, 2000]))
     
-    
+    print("plot_gini")
     plot_gini(cohort_size_gini, criterion, criterion_display)
+    print("plot_cohort_size_gini_cor")
     plot_cohort_size_gini_cor(cohort_size_gini,  criterion, criterion_display)
     
     # mean/std/median
     stats = get_cohort_stats(cohort_careerage_df, criterion)
     print(stats.head(n=1))
-    plot_cohort_gender_diffs(stats, criterion, criterion_display)
+    # doesnt plot anything
+#     plot_cohort_gender_diffs(stats, criterion, criterion_display)
+    print("plot_cohort_means_over_ages")
     plot_cohort_means_over_ages(stats, criterion, criterion_display)
     
     # plot overall gini for all authors that started between 1970 and 2000, ignore cohorts
     cohort_size_gini = get_cohort_size_gini(cohort_careerage_df,criterion, np.array([1970, 2000]))
+    print("plot_gini [1970, 2000]")
     plot_gini(cohort_size_gini, criterion+"_ALL_AUTHORS", criterion_display)
     
     cohort_size_gini = get_cohort_size_gini(cohort_careerage_df,criterion, np.array([1970, 1980, 1990, 2000]))
+    print("plot_gini [1970, 1980, 1990, 2000]")
     plot_gini(cohort_size_gini, criterion+"_COHORTS_10_YEARS", criterion_display)
     
     # plot effect size 
     cohort_effect_size = get_cohort_effect_size(cohort_careerage_df)
+    print("plot_cohort_effect_size")
     plot_cohort_effect_size(cohort_effect_size)
     
     
@@ -112,13 +118,8 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion,
             # we need to set their value to 0 or to the value of previous year (for cumulative calculation) 
             df_values = cohort_authors[['author', 'gender']].merge(temp[['author', criterion]], on='author', how='left')
             df_values['prev_value'] = prev_value
-#             print(df_values.tail())
-
-            # make sure cohort is not shrinking
-            # df_values = pd.merge(df_values[['author', 'prev_value']],temp[['author','gender',criterion]], how='left', on='author')
             
             #Take the current values. If NaN or None then consider the previous values
-            
             df_values[criterion] = df_values[criterion].combine_first(df_values['prev_value'])
             #print(df_values.tail())
       
@@ -164,6 +165,52 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion,
  
     return cohort_careerage_df
                
+def plot_cohort_effect_size(cohort_effect_size):
+    data = cohort_effect_size
+    
+    significant_effect = cohort_effect_size[cohort_effect_size.pvalue <= 0.05]
+    significant_effect = significant_effect.cohort_start_year.value_counts().to_frame()
+    significant_years = list(significant_effect[significant_effect.cohort_start_year > 5].index)
+    
+    plt = init_plotting()
+
+    cohort_start_years = data.cohort_start_year.unique()
+
+    fig2 = plt.figure()
+    fig2.patch.set_facecolor('white')
+    ax2 = fig2.add_subplot(1,1,1) #, axisbg="white"
+
+
+    highlighted_cohorts = []  
+    colors = ('#DE4C2C', '#3BD64C', '#3B9ED6', '#B73BD6', '#F39C12', '#FFC0CB', '#27AE60', '#48C9B0', '#071019', '#AAB7B8', '#AA524E', '#2C2F5A', '#81B3AE', '#E4DFDA', '#D4B483')
+    markers = []
+    for m in Line2D.markers:
+        try:
+            if m != ' ' and m != '':
+                markers.append(m)
+        except TypeError:
+            print("Typeerror occured")
+            pass
+
+    ax2.set_xlabel('Career Age', labelpad=20, fontweight='bold') 
+    ax2.set_ylabel('Effect size ', labelpad=20, fontweight='bold')
+    plt.title("Mann Whitney U - effect size r")
+
+    p = 0
+    for year in cohort_start_years: 
+        cohort = data[data.cohort_start_year == year]
+
+        if(year in significant_years):
+            ax2.errorbar(cohort.career_age, cohort.effect, label=year, color=colors[p],
+                         marker=markers[p], markersize=10)
+            highlighted_cohorts.append(year)
+            p = p+1 
+        else:
+            ax2.errorbar(cohort.career_age, cohort.effect, label=None, color='grey', alpha=0.5)
+
+    plt.tight_layout()
+    plt.legend()
+    plt.show()
       
 # get gini for each year or intervals longer than a year        
 def get_cohort_size_gini(data, criterion, start_years):
@@ -209,7 +256,6 @@ def get_cohort_size_gini(data, criterion, start_years):
     return cohort_size_gini    
 
                                                        
-
 def get_cohort_stats(data, criterion):
     # input dataframe: cohort start year, career age, gender, distribution of values (num pub or cum num pub or num cit or cum num cit) 
     # output:  mean, median, std of distribution (e.g. publications, citations cum pub, cum cit)
@@ -353,7 +399,7 @@ def plot_cohort_gender_diffs(data, criterion, criteria_display):
     markers = []
     for m in Line2D.markers:
         try:
-            if len(m) == 1 and m != ' ':
+            if m != ' ' and m != '':
                 markers.append(m)
         except TypeError:
             pass
@@ -392,7 +438,7 @@ def plot_cohort_means_over_ages(data, criterion, criteria_display):
     markers = []
     for m in Line2D.markers:
         try:
-            if len(m) == 1 and m != ' ':
+            if m != ' ' and m != '':
                 markers.append(m)
         except TypeError:
             print("Typeerror occured")
