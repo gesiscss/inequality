@@ -11,6 +11,7 @@ import random
 import matplotlib.cm as cm
 from collections import Counter
 from matplotlib.lines import Line2D
+from IPython.display import display
 
 # set global settings
 def init_plotting():
@@ -64,7 +65,7 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     
     # mean/std/median
     stats = get_cohort_stats(cohort_careerage_df, criterion)
-    print(stats.head(n=1))
+    display(stats.head(n=1))
     # doesnt plot anything
 #     plot_cohort_gender_diffs(stats, criterion, criterion_display)
     print("plot_cohort_means_over_ages")
@@ -81,12 +82,13 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     
     # plot effect size 
     cohort_effect_size = get_cohort_effect_size(cohort_careerage_df)
+    display(cohort_effect_size.head())
     print("plot_cohort_effect_size")
     plot_cohort_effect_size(cohort_effect_size)
     
     
-def get_cohort_effect_size(cohort_careerage_df, group_a='m', group_b='f'):
-    data = cohort_careerage_df[cohort_careerage_df.gender.isin([group_a, group_b])]
+def get_cohort_effect_size(cohort_careerage_df, gender_a='m', gender_b='f'):
+    data = cohort_careerage_df[cohort_careerage_df.gender.isin([gender_a, gender_b])]
     data = data.groupby(['cohort_start_year', 'career_age'])['values'].apply(lambda x: (x.iloc[0], x.iloc[1])).reset_index()
     data['effect'], data['statistic'], data['pvalue'] = zip(*data['values'].apply(lambda x: calculate.mann_whitney_effect_size(x[0],x[1], effect_formula='r')))
     return data
@@ -216,15 +218,14 @@ def plot_cohort_effect_size(cohort_effect_size):
 def get_cohort_size_gini(data, criterion, start_years):
     # input dataframe: cohort start year, career age, gender, distribution of values (num pub or cum num pub or num cit or cum num cit) 
     # cohort_size_gini: stores cohort start year, cohort size, career age and gini
+    # BUG: implementation of start_years does not work as intended! Only valid for per year-basis
        
     cohort_size_gini = pd.DataFrame(columns=["cohort_start_year", "cohort_size", "age", "gini"])
           
     #for start_year in start_years:
-    i=0
-    while i in range(0, (len(start_years)-1)):
+    for i in range(0, (len(start_years)-1)):
         start_year_start = start_years[i]
         start_year_end =  start_years[i+1] 
-        i = i+1
         #print("start_year_start: "+str(start_year_start)+"  start_year_end: "+str(start_year_end))
         
         #cohort = data[data["cohort_start_year"] == start_year]
@@ -240,6 +241,7 @@ def get_cohort_size_gini(data, criterion, start_years):
             cohort_age_df = cohort_age_df[cohort_age_df["gender"] == "all"]
             
             #print(len(cohort_age_df["values"].values[0]))
+            # BUG is here. Takes only first value!
             values = cohort_age_df["values"].values[0]
             
             if(len(values)>0):
@@ -537,7 +539,7 @@ def plot_cohort_size_gini_cor(data, criterion, criteria_display):
     
     unique_career_ages = np.unique(data["age"])
     max_years = np.max(unique_career_ages)
-    print("plot_cohort_size_gini_cor ---  unique_career_ages:")
+    print("unique_career_ages:")
     print(unique_career_ages)
     
     if(max_years >= 15):

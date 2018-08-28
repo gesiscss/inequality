@@ -90,7 +90,10 @@ def groupDataAndCalculateCumulativeValues(data, group_year, criterion):
     
     # Group years and associative data and calculates the cumulative value
     if group_year > 1:
-        # This code in the if is not used in the notebooks, and is not tested.
+        # BUG: Calculation of publications/citations not correct
+        # BUG: This code changes the start year parameter! It moves 'maseka lesaoana from 2001 to 2000!
+        raise Exception('This part of code is not fixed! Do not use it!')
+        
         min_year = data['year'].min() 
         
         # the final year was getting missed out from grouping. Inorder to avoid that the max year is extended by one group year
