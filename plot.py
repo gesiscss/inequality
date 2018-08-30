@@ -51,8 +51,9 @@ def init_plotting():
     return plt
 
 
-def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, criterion_display, authorStartEndCareerData):
-    cohort_careerage_df = get_cohort_careerage_df(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, authorStartEndCareerData)
+def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, criterion_display, authorStartEndCareerData, skip_overlaping_years):
+    print("get_cohort_careerage_df")
+    cohort_careerage_df = get_cohort_careerage_df(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, authorStartEndCareerData, skip_overlaping_years)
     
     #gini
     cohort_size_gini = get_cohort_size_gini(cohort_careerage_df,criterion, cohort_careerage_df["cohort_start_year"].unique())
@@ -81,98 +82,100 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     plot_gini(cohort_size_gini, criterion+"_COHORTS_10_YEARS", criterion_display)
     
     # plot effect size 
-    cohort_effect_size = get_cohort_effect_size(cohort_careerage_df)
-    display(cohort_effect_size.head())
-    print("plot_cohort_effect_size")
-    plot_cohort_effect_size(cohort_effect_size)
+#     cohort_effect_size = get_cohort_effect_size(cohort_careerage_df)
+#     display(cohort_effect_size.head())
+#     print("plot_cohort_effect_size")
+#     plot_cohort_effect_size(cohort_effect_size)
     
     
-def get_cohort_effect_size(cohort_careerage_df, gender_a='m', gender_b='f'):
+def get_cohort_effect_size(cohort_careerage_df, gender_a='m', gender_b='f', effect_formula='r'):
     data = cohort_careerage_df[cohort_careerage_df.gender.isin([gender_a, gender_b])]
     data = data.groupby(['cohort_start_year', 'career_age'])['values'].apply(lambda x: (x.iloc[0], x.iloc[1])).reset_index()
-    data['effect'], data['statistic'], data['pvalue'] = zip(*data['values'].apply(lambda x: calculate.mann_whitney_effect_size(x[0],x[1], effect_formula='r')))
+    data['effect'], data['statistic'], data['pvalue'] = zip(*data['values'].apply(lambda x: calculate.mann_whitney_effect_size(x[0],x[1], effect_formula=effect_formula)))
     return data
     
     
-def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion, authorStartEndCareerData):
-    #returns a dataframe: cohort start year, career age, gender, distribution of values (num pub or cum num pub or num cit or cum num cit) 
+def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion, authorStartEndCareerData, skip_overlaping_years=False):
+    #returns a dataframe: cohort start year, career age, gender, distribution of values (num_pub or num_cit or cum_) 
   
     #gender can be all, f or m or none
     cohort_careerage_df = pd.DataFrame(columns=["cohort_start_year", "career_age", "criterion", "gender", "values"])
 
-    for start_year in cohort_start_years: 
-        cohort = data[data["start_year"]==start_year]
-      
-        cohort_authors = authorStartEndCareerData[authorStartEndCareerData.start_year == start_year]
+    for i in range(0, (len(cohort_start_years)-1)):
+        start_year_start = cohort_start_years[i]
+        start_year_end =  cohort_start_years[i+1] 
+#         print(f'Start: {start_year_start}, end: {start_year_end}')
+        cohort_width = start_year_end - start_year_start
+
+        data = data[data["start_year"] >= start_year_start]
+        cohort = data[data["start_year"] < start_year_end]
+
+        cohort_authors = authorStartEndCareerData[(authorStartEndCareerData.start_year >= start_year_start) & 
+                                                  (authorStartEndCareerData.start_year < start_year_end)]
         cohort_size  = cohort_authors.author.nunique()
+
+        # should we skip overlaping years?
+        step = start_year_end - start_year_start if skip_overlaping_years else 1
         
-        #print("\n \n \n COHORT START YEAR: "+str(start_year)+"  ---  size:"+str(cohort_size)) 
-        subsequent_years = [(start_year+i) for i in range(0, max_career_age)]
+        subsequent_years = list(range(start_year_start, start_year_start+max_career_age))
         
         # extract num publications/citations for the cohort in all future years
         age = 1
         prev_value = [0.0] * cohort_size
         for y in subsequent_years:
-            temp = cohort[cohort["year"]==y]
+    #         print(f'Start: {y}, end: {y+step}')
+            temp = cohort[cohort["year"] >= y]
+            temp = temp[temp["year"] < y + step]
+
             active_people = temp["author"].nunique()
-            
-            # Problem: authors who do not publish in y year dont show up; only in first year everyone is active per definition!
+            # authors who do not publish/get cited in y year dont show up
             # we need to set their value to 0 or to the value of previous year (for cumulative calculation) 
             df_values = cohort_authors[['author', 'gender']].merge(temp[['author', criterion]], on='author', how='left')
+            # sum up citations/publications for num. divide by step to account for number of years grouped
+            # in case of cumulative take maximum
+            agg_func = max if criterion.startswith('cum_') else lambda x: sum(x)/cohort_width
+            df_values = df_values.groupby('author').agg({'gender': 'first',
+                                                         criterion: agg_func}).reset_index()
             df_values['prev_value'] = prev_value
-            
-            #Take the current values. If NaN or None then consider the previous values
+
             df_values[criterion] = df_values[criterion].combine_first(df_values['prev_value'])
-            #print(df_values.tail())
-      
-            # If it is cumulative then previous values is set with current
-            # Otherwise previous value will always be 0
-            # 
-            # this dataframe contains num_pub and cum_num_pub as row, but if criterion is cum_ then only cum_ col will be updated!
-            #
+
+            # if cumulative save the previous value
+            # TODO Redesign this to work with both cum and normal at the same time. No reason to run it twice...
             if(criterion.startswith('cum_')):
                 prev_value = df_values[criterion]
 
             all_values = df_values[criterion].astype("float").values
-            
-          
-            #fraction of inactive people
-            #one_percent = cohort_size/100
-            #fraction_inactive = (cohort_size - active_people)/one_percent
-            #print(" fraction_inactive: "+str(fraction_inactive) +" in year "+str(y))
-            #print("all_values for start_year:  "+str(start_year)+"  career_age: "+str(age)+" criterion: "+criterion+" gender: all, values "+ str(len(all_values)))
-                   
-                    
-            cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year, 'career_age':age, 'criterion':criterion, 'gender':'all', 'values': all_values}, ignore_index=True)
-                   
-            
+
+
+            cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year_start, 'career_age':age,
+                                                              'criterion':criterion, 'gender':'all', 'values': all_values},
+                                                             ignore_index=True)
+
+
             temp_male = df_values[df_values["gender"]=="m"]
             temp_female = df_values[df_values["gender"]=="f"]
             temp_none = df_values[df_values["gender"]=="none"]
-            
-            cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year, 'career_age':age, 'criterion':criterion, 'gender':'m', 'values': temp_male[criterion].astype("float").values}, ignore_index=True)
-            cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year, 'career_age':age, 'criterion':criterion, 'gender':'f', 'values': temp_female[criterion].astype("float").values}, ignore_index=True)
-            cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year, 'career_age':age, 'criterion':criterion, 'gender':'none', 'values': temp_none[criterion].astype("float").values}, ignore_index=True)
-            
+
+            cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year_start, 'career_age':age,
+                                                              'criterion':criterion, 'gender':'m',
+                                                              'values': temp_male[criterion].astype("float").values}, ignore_index=True)
+            cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year_start, 'career_age':age,
+                                                              'criterion':criterion, 'gender':'f',
+                                                              'values': temp_female[criterion].astype("float").values}, ignore_index=True)
+            cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year_start, 'career_age':age,
+                                                              'criterion':criterion, 'gender':'none',
+                                                              'values': temp_none[criterion].astype("float").values}, ignore_index=True)
+
             age = age+1
-        
-        
-       
-            # test a guy(girl) that is in cohort 2001
-            # 'maseka lesaoana published 2 publications in total, one in 2001 and one in 2015
-            # every year she got some citations
-            #if start_year == 2001:
-            #    print("+++++++++++++++ cohort 2001 +++++++++++++++++++++++++")
-            #    print(df_values[df_values["author"] == '\'maseka lesaoana'])
- 
     return cohort_careerage_df
                
-def plot_cohort_effect_size(cohort_effect_size):
+def plot_cohort_effect_size(cohort_effect_size, num_significant = 5, effect_formula = 'r'):
     data = cohort_effect_size
     
     significant_effect = cohort_effect_size[cohort_effect_size.pvalue <= 0.05]
     significant_effect = significant_effect.cohort_start_year.value_counts().to_frame()
-    significant_years = list(significant_effect[significant_effect.cohort_start_year > 5].index)
+    significant_years = list(significant_effect[significant_effect.cohort_start_year > num_significant].index)
     
     plt = init_plotting()
 
@@ -196,7 +199,7 @@ def plot_cohort_effect_size(cohort_effect_size):
 
     ax2.set_xlabel('Career Age', labelpad=20, fontweight='bold') 
     ax2.set_ylabel('Effect size ', labelpad=20, fontweight='bold')
-    plt.title("Mann Whitney U - effect size r")
+    plt.title(f"Mann Whitney U - effect size {effect_formula}")
 
     p = 0
     for year in cohort_start_years: 

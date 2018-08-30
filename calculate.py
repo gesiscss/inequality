@@ -19,10 +19,16 @@ def mann_whitney_effect_size(a, b, alternative='two-sided', effect_formula='r'):
 #     print("u: ", statistic)
 #     print("z: ", z)
 #     print("p: ", pvalue)
+    # http://yatani.jp/teaching/doku.php?id=hcistats:mannwhitney#effect_size
+    # http://core.ecu.edu/psyc/wuenschk/docs30/Nonparametric-EffectSize.pdf
+    # https://myadm2014.files.wordpress.com/2017/02/spss-survival-manual-a-step-by-step-guide-to-data-analysis-using-spss-for-windows-3rd-edition-aug-2007-2.pdf
+    # https://www.psychometrica.de/effect_size.html
     if effect_formula == 'r':
         effect = z/math.sqrt(n1+n2)
     elif effect_formula == 'eta':
         effect = (z**2)/(n1+n2-1)
+    elif effect_formula == 'common_language':
+        effect = statistic/(n1*n2)
     return abs(effect), statistic, pvalue
 
 def cohen_d(x_means,y_means, x_std, y_std):
