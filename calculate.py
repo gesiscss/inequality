@@ -56,6 +56,9 @@ def cliffs_delta_cohorts(data, column, val1, val2, criterion, years):
     cliffsD_cohorts = pd.DataFrame(columns=['start_year', 'cliffsD'], data=cliffsD_lst)
     return cliffsD_cohorts
 
+def coef_var(array):
+    return np.std(array)/np.mean(array)
+
 def gini(array):
     
     #"""Calculate the Gini coefficient of a numpy array."""

@@ -51,9 +51,9 @@ def init_plotting():
     return plt
 
 
-def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, criterion_display, authorStartEndCareerData, skip_overlaping_years):
+def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, criterion_display, authorStartEndCareerData):
     print("get_cohort_careerage_df")
-    cohort_careerage_df = get_cohort_careerage_df(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, authorStartEndCareerData, skip_overlaping_years)
+    cohort_careerage_df = get_cohort_careerage_df(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, authorStartEndCareerData)
     
     #gini
     cohort_size_gini = get_cohort_size_gini(cohort_careerage_df,criterion, cohort_careerage_df["cohort_start_year"].unique())
@@ -95,7 +95,7 @@ def get_cohort_effect_size(cohort_careerage_df, gender_a='m', gender_b='f', effe
     return data
     
     
-def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion, authorStartEndCareerData, skip_overlaping_years=False):
+def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion, authorStartEndCareerData): #,skip_overlaping_years=False
     #returns a dataframe: cohort start year, career age, gender, distribution of values (num_pub or num_cit or cum_) 
   
     #gender can be all, f or m or none
@@ -113,9 +113,6 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion,
         cohort_authors = authorStartEndCareerData[(authorStartEndCareerData.start_year >= start_year_start) & 
                                                   (authorStartEndCareerData.start_year < start_year_end)]
         cohort_size  = cohort_authors.author.nunique()
-
-        # should we skip overlaping years?
-        step = start_year_end - start_year_start if skip_overlaping_years else 1
         
         subsequent_years = list(range(start_year_start, start_year_start+max_career_age))
         
@@ -123,15 +120,15 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion,
         age = 1
         prev_value = [0.0] * cohort_size
         for y in subsequent_years:
-    #         print(f'Start: {y}, end: {y+step}')
+    #         print(f'Start: {y}, end: {y+cohort_width}')
             temp = cohort[cohort["year"] >= y]
-            temp = temp[temp["year"] < y + step]
+            temp = temp[temp["year"] < y + cohort_width]
 
             active_people = temp["author"].nunique()
             # authors who do not publish/get cited in y year dont show up
             # we need to set their value to 0 or to the value of previous year (for cumulative calculation) 
             df_values = cohort_authors[['author', 'gender']].merge(temp[['author', criterion]], on='author', how='left')
-            # sum up citations/publications for num. divide by step to account for number of years grouped
+            # sum up citations/publications for num. divide by cohort_width to account for number of years grouped
             # in case of cumulative take maximum
             agg_func = max if criterion.startswith('cum_') else lambda x: sum(x)/cohort_width
             df_values = df_values.groupby('author').agg({'gender': 'first',
@@ -304,9 +301,7 @@ def get_cohort_stats(data, criterion):
     stats.to_csv("fig/stats_"+criterion+".csv")
    
     return stats
-    
-
-    
+     
 
 def plot_cumulative_dist(df, age, criterion, criteria_display):
     # creates one cdf plot for each career age; each cohort is one line
