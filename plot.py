@@ -51,9 +51,9 @@ def init_plotting():
     return plt
 
 
-def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, criterion_display, authorStartEndCareerData):
+def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, criterion_display, authorStartEndCareerData, skip_overlaping_years):
     print("get_cohort_careerage_df")
-    cohort_careerage_df = get_cohort_careerage_df(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, authorStartEndCareerData)
+    cohort_careerage_df = get_cohort_careerage_df(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, authorStartEndCareerData, skip_overlaping_years)
     
     #gini
     cohort_size_gini = get_cohort_size_gini(cohort_careerage_df,criterion, cohort_careerage_df["cohort_start_year"].unique())
@@ -95,7 +95,7 @@ def get_cohort_effect_size(cohort_careerage_df, gender_a='m', gender_b='f', effe
     return data
     
     
-def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion, authorStartEndCareerData): #,skip_overlaping_years=False
+def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion, authorStartEndCareerData, skip_overlaping_years=False):
     #returns a dataframe: cohort start year, career age, gender, distribution of values (num_pub or num_cit or cum_) 
   
     #gender can be all, f or m or none
@@ -113,6 +113,9 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion,
         cohort_authors = authorStartEndCareerData[(authorStartEndCareerData.start_year >= start_year_start) & 
                                                   (authorStartEndCareerData.start_year < start_year_end)]
         cohort_size  = cohort_authors.author.nunique()
+
+        # should we skip overlaping years?
+        step = start_year_end - start_year_start if skip_overlaping_years else 1
         
         subsequent_years = list(range(start_year_start, start_year_start+max_career_age))
         
@@ -120,15 +123,15 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion,
         age = 1
         prev_value = [0.0] * cohort_size
         for y in subsequent_years:
-    #         print(f'Start: {y}, end: {y+cohort_width}')
+    #         print(f'Start: {y}, end: {y+step}')
             temp = cohort[cohort["year"] >= y]
-            temp = temp[temp["year"] < y + cohort_width]
+            temp = temp[temp["year"] < y + step]
 
             active_people = temp["author"].nunique()
             # authors who do not publish/get cited in y year dont show up
             # we need to set their value to 0 or to the value of previous year (for cumulative calculation) 
             df_values = cohort_authors[['author', 'gender']].merge(temp[['author', criterion]], on='author', how='left')
-            # sum up citations/publications for num. divide by cohort_width to account for number of years grouped
+            # sum up citations/publications for num. divide by step to account for number of years grouped
             # in case of cumulative take maximum
             agg_func = max if criterion.startswith('cum_') else lambda x: sum(x)/cohort_width
             df_values = df_values.groupby('author').agg({'gender': 'first',
@@ -220,8 +223,8 @@ def get_cohort_size_gini(data, criterion, start_years):
     # cohort_size_gini: stores cohort start year, cohort size, career age and gini
     # BUG: implementation of start_years does not work as intended! Only valid for per year-basis
        
-    cohort_size_gini = pd.DataFrame(columns=["cohort_start_year", "cohort_size", "age", "gini"])
-          
+    cohort_size_gini = pd.DataFrame(columns=["cohort_start_year", "cohort_size", "age", "gini", "coefvar"])
+         
     #for start_year in start_years:
     for i in range(0, (len(start_years)-1)):
         start_year_start = start_years[i]
@@ -246,10 +249,11 @@ def get_cohort_size_gini(data, criterion, start_years):
             
             if(len(values)>0):
                 gini = calculate.gini(values)
-                cohort_size_gini = cohort_size_gini.append({'cohort_start_year': start_year_start, 'cohort_size':len(values), 'age': age, 'gini': gini}, ignore_index=True) 
+                coefvar = calculate.coef_var(values)
+                cohort_size_gini = cohort_size_gini.append({'cohort_start_year': start_year_start, 'cohort_size':len(values), 'age': age, 'gini': gini, 'coefvar': coefvar}, ignore_index=True) 
             else:
                 print("Here no values for gini calculation found!!!!!!!!!!!!!!!!!!!")
-                cohort_size_gini = cohort_size_gini.append({'cohort_start_year': start_year_start, 'cohort_size':len(values), 'age': age, 'gini': np.nan}, ignore_index=True)       
+                cohort_size_gini = cohort_size_gini.append({'cohort_start_year': start_year_start, 'cohort_size':len(values), 'age': age, 'gini': np.nan, 'coefvar':np.nan}, ignore_index=True)       
     
     
     # save gini results for cohort
@@ -360,27 +364,39 @@ def plot_cumulative_dist(df, age, criterion, criteria_display):
 def plot_gini(cohort_size_gini, criterion, criteria_display):
     #input  dataframe ["cohort_start_year", "cohort_size", "age", "gini"])   
     plt = init_plotting()
+    plt.ylim(0.1, 0.9)
     
     fig1 = plt.figure()
-    #plt.ylim(0.1, 1)
+    fig2 = plt.figure()
+    
     
     fig1.patch.set_facecolor('white')
+    fig2.patch.set_facecolor('white')
     ax1 = fig1.add_subplot(1,1,1) #axisbg="white"
+    ax2 = fig2.add_subplot(1,1,1) #axisbg="white"
+    
     cohort_start_years = np.unique(cohort_size_gini["cohort_start_year"].values)
     
     for start_year in cohort_start_years:
         selected_cohort = cohort_size_gini[cohort_size_gini["cohort_start_year"]==start_year]
-
+        print(selected_cohort.head())
         ax1.plot(selected_cohort["age"], selected_cohort["gini"])
+        ax2.plot(selected_cohort["age"], selected_cohort["coefvar"])
         
     ax1.set_ylabel('Gini ('+criteria_display+')', fontweight='bold')
     ax1.set_xlabel('Career Age', fontweight='bold')
+    ax2.set_ylabel('Coef of Var ('+criteria_display+')', fontweight='bold')
+    ax2.set_xlabel('Career Age', fontweight='bold')
     
     if ((len(cohort_start_years)<10) & (len(cohort_start_years)>1)):
         ax1.legend(cohort_start_years)  
+        ax2.legend(cohort_start_years)  
     plt.show()
     fig1.savefig("fig/gini_"+criterion+".png", facecolor=fig1.get_facecolor(), edgecolor='none', bbox_inches='tight')
+    fig2.savefig("fig/coefvar_"+criterion+".png", facecolor=fig1.get_facecolor(), edgecolor='none', bbox_inches='tight')
+    
     plt.close(fig1)
+    plt.close(fig2)
 
     
 def plot_cohort_gender_diffs(data, criterion, criteria_display):
