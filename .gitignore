@@ -2,5 +2,6 @@ fig/
 data/
 .ipynb_checkpoints/
 __pycache__/
+derived-data-backup/
 derived-data/
 fig*
