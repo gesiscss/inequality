@@ -162,12 +162,25 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion,
                 prev_value = df_values[criterion]
 
             all_values = df_values[criterion].astype("float").values
-
-
+            
+            #TODO concentration INDEX (add that somewgere)
+            #one_percent = (len(all_values)/100)
+            #top_one_percent = df_values.nlargest(one_percent, columns=[criterion], keep='first')
+            #top_m = top_one_percent[top_one_percent["gender"]=="m"].count/top_one_percent.count
+            
+            # what is fraction of men in top 1% versus in the whole dataset
+            #fraction_men = (df_values[df_values["gender"]=="m"].count/df_values.count)
+            #concentration_index_m = top_m/fraction_men
+            
+            #print("fraction men: "+str(fraction_men))
+            #print("top_m: "+str(top_m))   
+            #print("concentration_index_m: "+str(concentration_index_m))
+            
             cohort_careerage_df = cohort_careerage_df.append({'cohort_start_year': start_year, 'career_age':age,
                                                               'gender':'all', 'values': all_values},
                                                              ignore_index=True)
-
+            
+            
 
             temp_male = df_values[df_values["gender"]=="m"][criterion].astype("float").values
             temp_female = df_values[df_values["gender"]=="f"][criterion].astype("float").values
@@ -185,6 +198,8 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion,
 
             age = age+1
     return cohort_careerage_df
+
+
 
 def group_cohorts(cohort_careerage_df, cohort_start_years, num_years_in_cohort):
     replace_dict = {}
@@ -333,7 +348,7 @@ def get_cohort_stats(cohort_careerage_df, criterion):
                     'std_n':np.std(values_none),
                     'sem_n':np.std(values_none)/np.sqrt(len(values_none)),
                     'median_n':np.median(values_none),
-                    'cliffd_m_f': calculate.cliffsD(values_male, values_female),
+                    'cliffd_m_f': calculate.cliffsD(values_male, values_female)
                    }
             stats = stats.append(vals, ignore_index=True) 
         
@@ -562,7 +577,6 @@ def plot_cohort_diffs_over_ages(stats, criterion, criterion_display):
 
 
     for year in cohort_start_years: 
-
         cohort = stats[stats["cohort_start_year"]==year]
         significant_effect = cohort[cohort.pvalue <= 0.05].career_age.values
         significant_effect = [index - 1 for index in significant_effect]
