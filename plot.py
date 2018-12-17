@@ -426,6 +426,8 @@ def plot_gini(cohort_size_gini, criterion, criterion_display):
     ax1 = fig1.add_subplot(1,1,1) #axisbg="white"
     ax2 = fig2.add_subplot(1,1,1) #axisbg="white"
     
+    ax1.set_ylim(0,1)
+    
     cohort_start_years = np.unique(cohort_size_gini["cohort_start_year"].values)
     
     for start_year in cohort_start_years:
@@ -604,7 +606,7 @@ def plot_cohort_diffs_over_ages(stats, criterion, criterion_display):
             i = i+1
 
 
-    fig3.savefig("fig/mean_"+criterion+"_gender.png", facecolor=fig3.get_facecolor(), edgecolor='none', bbox_inches='tight')
+    fig3.savefig("fig/cliffs_delta_"+criterion+"_gender.png", facecolor=fig3.get_facecolor(), edgecolor='none', bbox_inches='tight')
 
     plt.tight_layout()
     plt.show()
