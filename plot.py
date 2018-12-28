@@ -83,6 +83,11 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     
     plot_cohort_diffs_over_ages(stats, criterion, criterion_display)
     
+    stats_gini_cliff = stats[['cohort_start_year', 'career_age', 'cliffd_m_f']].merge(cohort_size_gini[['cohort_start_year', 'age', 'gini']], left_on=['cohort_start_year', 'career_age'], right_on=['cohort_start_year', 'age'])
+    stats_gini_cliff = stats_gini_cliff.groupby('cohort_start_year')[['cliffd_m_f', 'gini']].mean()
+    plt.scatter(stats_gini_cliff['cliffd_m_f'], stats_gini_cliff['gini'])
+    plt.show()
+    
     # plot overall gini for all authors that started between 1970 and 2000, ignore cohorts
     # TODO Remove or fix this
 #     cohort_size_gini = get_cohort_size_gini(cohort_careerage_df,criterion, np.array([1970, 2000]))
