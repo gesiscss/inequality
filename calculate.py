@@ -59,6 +59,17 @@ def cliffs_delta_cohorts(data, column, val1, val2, criterion, years):
 def coef_var(array):
     return np.std(array)/np.mean(array)
 
+
+def percentage_zeros(array):
+    return ((array.size)-np.count_nonzero(array))/(array.size)
+
+def hhi(array):
+    # Herfindahl Hirschmann Index   
+    array = np.trim_zeros(array)
+    H = np.sum(np.square(array))
+    N = array.size
+    return (H -1/N)/(1-1/N)
+
 def gini(array):
     
     #"""Calculate the Gini coefficient of a numpy array."""

@@ -56,10 +56,15 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     print("get_cohort_careerage_df")
     cohort_careerage_df = get_cohort_careerage_df(groupByYearData, cohort_start_years, max_career_age_cohort, criterion, authorStartEndCareerData)
     
+    print(cohort_careerage_df.head(n=3))
+    #print("num_years_in_cohort: "+str(num_years_in_cohort))
+    
     # group cohorts 
     if num_years_in_cohort > 1:
         cohort_careerage_df = group_cohorts(cohort_careerage_df, cohort_start_years, num_years_in_cohort)
     
+    #print(cohort_careerage_df.head(n=2))
+  
     #gini
     cohort_size_gini = get_cohort_size_gini(cohort_careerage_df,criterion, cohort_careerage_df["cohort_start_year"].unique())
     #cohort_size_gini = get_cohort_gini(cohort_careerage_df,criterion, np.array([1970, 1980, 1990, 2000]))
@@ -74,6 +79,7 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     
     # mean/std/median
     stats = get_cohort_stats(cohort_careerage_df, criterion)
+    
     stats = stats.merge(cohort_effect_size_df, on=['cohort_start_year', 'career_age'])
     # display(stats.head(n=1))
     # doesnt plot anything
@@ -110,6 +116,7 @@ def plot_gini_cliff(stats, criterion, criterion_display, cohort_size_gini):
     plt.xlabel("Cliffs delta m_f")
     plt.ylabel(f"Gini {criterion_display}")
     plt.title("Gini vs Cliffs delta for cohorts")
+    plt.savefig("fig/gini_cliff_"+str(criterion)+".png")
     plt.show()
     
     
@@ -119,10 +126,12 @@ def get_cohort_effect_size(cohort_careerage_df, gender_a='m', gender_b='f', effe
     data['effect'], data['statistic'], data['pvalue'] = zip(*data['values'].apply(lambda x: calculate.mann_whitney_effect_size(x[0],x[1], effect_formula=effect_formula)))
     return data
     
-    
+
+# this method generates a dataframe that holds all values (num_pub or num_cit or cum_) for a cohort in a specific year
+# in theory we can generate this distribution also only for all men/women in the cohort
+#returns a dataframe: cohort start year, career age, gender, distribution of values (num_pub or num_cit or cum_)   
 def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion, authorStartEndCareerData):
-    #returns a dataframe: cohort start year, career age, gender, distribution of values (num_pub or num_cit or cum_) 
-  
+ 
     #gender can be all, f or m or none
     cohort_careerage_df = pd.DataFrame(columns=["cohort_start_year", "career_age", "gender", "values"])
 
@@ -135,46 +144,44 @@ def get_cohort_careerage_df(data, cohort_start_years, max_career_age, criterion,
 #         data = data[data["start_year"] >= start_year_start]
 #         cohort = data[data["start_year"] < start_year_end]
 
+        print("start_year: "+str(start_year))
         cohort = data[data["start_year"] == start_year]
-
-#         cohort_authors = authorStartEndCareerData[(authorStartEndCareerData.start_year >= start_year_start) & 
-#                                                   (authorStartEndCareerData.start_year < start_year_end)]
-
         cohort_authors = authorStartEndCareerData[authorStartEndCareerData.start_year == start_year]
-    
         cohort_size  = cohort_authors.author.nunique()
-
+        print("cohort_size: "+str(cohort_size))
+        
         subsequent_years = list(range(start_year, start_year+max_career_age))
+        #print("subsequent_years: "+str(subsequent_years))
+        
+        #print(cohort[cohort['author'] == '\'maseka lesaoana'].head(10))
+
         
         # extract num publications/citations for the cohort in all future years
         age = 1
         prev_value = [0.0] * cohort_size
         for y in subsequent_years:
             temp = cohort[cohort["year"] == y]
-    #         print(f'Start: {y}, end: {y+step}')
-#             temp = cohort[cohort["year"] >= y]
-#             temp = temp[temp["year"] < y + step]
 
             active_people = temp["author"].nunique()
             # authors who do not publish/get cited in y year dont show up
             # we need to set their value to 0 or to the value of previous year (for cumulative calculation) 
             df_values = cohort_authors[['author', 'gender']].merge(temp[['author', criterion]], on='author', how='left')
-            # sum up citations/publications for num. divide by step to account for number of years grouped
-            # in case of cumulative take maximum
-            
-#             agg_func = max if criterion.startswith('cum_') else lambda x: sum(x)/cohort_width
-#             df_values = df_values.groupby('author').agg({'gender': 'first',
-#                                                          criterion: agg_func}).reset_index()
+
+            #print(df_values[df_values['author'] == '\'maseka lesaoana'])
+            # Is this working???
             df_values['prev_value'] = prev_value
-
             df_values[criterion] = df_values[criterion].combine_first(df_values['prev_value'])
-
+            #print("after merge: ")
+            #print(df_values[df_values['author'] == '\'maseka lesaoana'])
+            
             # if cumulative save the previous value
             # TODO Redesign this to work with both cum and normal at the same time. No reason to run it twice...
             if(criterion.startswith('cum_')):
                 prev_value = df_values[criterion]
 
             all_values = df_values[criterion].astype("float").values
+            
+            #print("len of all_values: "+str(len(all_values)))
             
             #TODO concentration INDEX (add that somewgere)
             #one_percent = (len(all_values)/100)
@@ -366,7 +373,10 @@ def get_cohort_stats(cohort_careerage_df, criterion):
             stats = stats.append(vals, ignore_index=True) 
         
     
-  
+      
+    stats['cohort_start_year'] = stats['cohort_start_year'].astype('int64')
+    stats['cohort_size'] = stats['cohort_size'].astype('int64')
+    stats['career_age'] = stats['career_age'].astype('int64')
     stats.to_csv("fig/stats_"+criterion+".csv")
    
     return stats
