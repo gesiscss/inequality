@@ -64,14 +64,18 @@ def percentage_zeros(array):
     return ((array.size)-np.count_nonzero(array))/(array.size)
 
 def hhi(array):
-    # Herfindahl Hirschmann Index   
-    array = np.trim_zeros(array)
-    H = np.sum(np.square(array))
-    N = array.size
-    return (H -1/N)/(1-1/N)
+    # Herfindahl Hirschman Index   
+    # formula not good
+    # TODO check formula
+    total = np.sum(array)
+    if total == 0: return 0
+    N = np.count_nonzero(array)
+    if N == 1: return 1
+    H = np.sum([(value/total)**2 for value in array])
+    return (H- 1/N)/(1- 1/N)
 
 def gini(array):
-    
+    array_copy = np.copy(array)
     #"""Calculate the Gini coefficient of a numpy array."""
     # based on bottom eq:
     # http://www.statsdirect.com/help/generatedimages/equations/equation154.svg
@@ -81,21 +85,49 @@ def gini(array):
     #array = array.flatten()
     
     try:
-        if np.min(array) < 0:
+        if np.min(array_copy) < 0:
             # Values cannot be negative:
-            array -= np.min(array)
+            array_copy -= np.min(array_copy)
     except ValueError:  #raised if `array` is empty.
         return 0
     # Values cannot be 0:
-    array += 0.0000001
+    array_copy += 0.0000001
     # Values must be sorted:
-    array = np.sort(array)
+    array_copy = np.sort(array_copy)
     # Index per array element:
-    index = np.arange(1,array.shape[0]+1)
+    index = np.arange(1,array_copy.shape[0]+1)
     # Number of array elements:
-    n = array.shape[0]
+    n = array_copy.shape[0]
     # Gini coefficient:
-    return ((np.sum((2 * index - n  - 1) * array)) / (n * np.sum(array)))
+    return ((np.sum((2 * index - n  - 1) * array_copy)) / (n * np.sum(array_copy)))
+
+
+def gini_nonzero(array):
+    array_copy = np.copy(array)
+    #"""Calculate the Gini coefficient of a numpy array."""
+    # based on bottom eq:
+    # http://www.statsdirect.com/help/generatedimages/equations/equation154.svg
+    # from:
+    # http://www.statsdirect.com/help/default.htm#nonparametric_methods/gini.htm
+    # All values are treated equally, arrays must be 1d:
+    #array = array.flatten()
+    
+    try:
+        if np.min(array_copy) < 0:
+            # Values cannot be negative:
+            array_copy -= np.min(array_copy)
+    except ValueError:  #raised if `array` is empty.
+        return 0
+    # Remove zeros: #Daniel replaced trim_zeros with nonzero
+    array_copy = array_copy[array_copy.nonzero()]
+    # Values must be sorted:
+    array_copy = np.sort(array_copy)
+    # Index per array element:
+    index = np.arange(1,array_copy.shape[0]+1)
+    # Number of array elements:
+    n = array_copy.shape[0]
+    # Gini coefficient:
+    return ((np.sum((2 * index - n  - 1) * array_copy)) / (n * np.sum(array_copy)))
 
 
 def calculate_cumulative_for_authors(data, criterion):

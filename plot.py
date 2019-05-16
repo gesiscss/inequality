@@ -16,6 +16,7 @@ from IPython.display import display
 
 # set global settings
 def init_plotting():
+    
     #print(plt.style.available)
     #plt.style.use(['seaborn-paper'])
     plt.rcParams.update({'figure.autolayout': True})
@@ -69,9 +70,8 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     cohort_size_gini = get_cohort_size_gini(cohort_careerage_df,criterion, cohort_careerage_df["cohort_start_year"].unique())
     #cohort_size_gini = get_cohort_gini(cohort_careerage_df,criterion, np.array([1970, 1980, 1990, 2000]))
     
-    print("plot_gini")
     plot_gini(cohort_size_gini, criterion, criterion_display)
-    print("plot_cohort_size_gini_cor")
+    
     plot_cohort_size_gini_cor(cohort_size_gini,  criterion, criterion_display)
     
     # effect size and significance - mwu
@@ -81,10 +81,7 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     stats = get_cohort_stats(cohort_careerage_df, criterion)
     
     stats = stats.merge(cohort_effect_size_df, on=['cohort_start_year', 'career_age'])
-    # display(stats.head(n=1))
-    # doesnt plot anything
-#     plot_cohort_gender_diffs(stats, criterion, criterion_display)
-    print("plot_cohort_means_over_ages")
+
     plot_cohort_means_over_ages(stats, criterion, criterion_display)
     
     plot_cohort_diffs_over_ages(stats, criterion, criterion_display)
@@ -92,22 +89,6 @@ def run_cohort_analysis(groupByYearData, cohort_start_years, max_career_age_coho
     
     plot_gini_cliff(stats, criterion, criterion_display, cohort_size_gini)
 
-    
-    # plot overall gini for all authors that started between 1970 and 2000, ignore cohorts
-    # TODO Remove or fix this
-#     cohort_size_gini = get_cohort_size_gini(cohort_careerage_df,criterion, np.array([1970, 2000]))
-#     print("plot_gini [1970, 2000]")
-#     plot_gini(cohort_size_gini, criterion+"_ALL_AUTHORS", criterion_display)
-    
-#     cohort_size_gini = get_cohort_size_gini(cohort_careerage_df,criterion, np.array([1970, 1980, 1990, 2000]))
-#     print("plot_gini [1970, 1980, 1990, 2000]")
-#     plot_gini(cohort_size_gini, criterion+"_COHORTS_10_YEARS", criterion_display)
-    
-    # plot effect size 
-#     cohort_effect_size = get_cohort_effect_size(cohort_careerage_df)
-#     display(cohort_effect_size.head())
-#     print("plot_cohort_effect_size")
-#     plot_cohort_effect_size(cohort_effect_size)
 def plot_gini_cliff(stats, criterion, criterion_display, cohort_size_gini):
     stats_gini_cliff = stats[['cohort_start_year', 'career_age', 'cliffd_m_f']].merge(cohort_size_gini[['cohort_start_year', 'age', 'gini']], left_on=['cohort_start_year', 'career_age'], right_on=['cohort_start_year', 'age'])
     stats_gini_cliff = stats_gini_cliff.groupby('cohort_start_year')[['cliffd_m_f', 'gini']].mean()
@@ -117,6 +98,7 @@ def plot_gini_cliff(stats, criterion, criterion_display, cohort_size_gini):
     plt.ylabel(f"Gini {criterion_display}")
     plt.title("Gini vs Cliffs delta for cohorts")
     plt.savefig("fig/gini_cliff_"+str(criterion)+".png")
+    print('plot_gini_cliff')
     plt.show()
     
     
@@ -276,6 +258,7 @@ def plot_cohort_effect_size(cohort_effect_size, num_significant = 5, effect_form
 
     plt.tight_layout()
     plt.legend()
+    print('plot_cohort_effect_size')
     plt.show()
       
 # get gini for each year or intervals longer than a year        
@@ -467,7 +450,7 @@ def plot_gini(cohort_size_gini, criterion, criterion_display):
     if ((len(cohort_start_years)<10) & (len(cohort_start_years)>1)):
         ax1.legend(cohort_start_years)  
         ax2.legend(cohort_start_years) 
-        
+    print('plot_gini')
     plt.show()
     fig1.savefig("fig/gini_"+criterion+".png", facecolor=fig1.get_facecolor(), edgecolor='none', bbox_inches='tight')
     fig2.savefig("fig/coefvar_"+criterion+".png", facecolor=fig1.get_facecolor(), edgecolor='none', bbox_inches='tight')
@@ -565,6 +548,7 @@ def plot_cohort_means_over_ages(stats, criterion, criterion_display):
     fig2.savefig("fig/mean_"+criterion+".png", facecolor=fig2.get_facecolor(), edgecolor='none', bbox_inches='tight')
     
     plt.tight_layout()
+    print('plot_cohort_means_over_ages')
     plt.show()
     plt.close(fig2)
     
@@ -595,6 +579,7 @@ def plot_cohort_diffs_over_ages(stats, criterion, criterion_display):
     fig3, ax3 = plt.subplots(nrows, cols, sharex=True, sharey=True, figsize=(16,10)) #sharey=True, 
     # Create a big subplot to created axis labels that scale with figure size
     ax_outside = fig3.add_subplot(111, frameon=False)
+    ax_outside.grid(False)
     # hide tick and tick label of the big axes
     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
     ax_outside.set_xlabel('Career Age', labelpad=20, fontweight='bold') 
@@ -621,6 +606,7 @@ def plot_cohort_diffs_over_ages(stats, criterion, criterion_display):
         #ax3[i,j].plot(cohort["age"], cohort["mean_m"].values - cohort["mean_f"].values)
 
         ax3[i,j].set_title(f"{year} ({len(significant_effect)})" , fontsize=12, fontweight="bold")
+        # ax3[i,j].grid(True)
 
         if (j<cols-1):
             j = j+1
@@ -632,6 +618,7 @@ def plot_cohort_diffs_over_ages(stats, criterion, criterion_display):
     fig3.savefig("fig/cliffs_delta_"+criterion+"_gender.png", facecolor=fig3.get_facecolor(), edgecolor='none', bbox_inches='tight')
 
     plt.tight_layout()
+    print('plot_cohort_diffs_over_ages')
     plt.show()
     plt.close(fig3)
     
@@ -661,6 +648,7 @@ def plot_cohort_size_gini_cor(data, criterion, criterion_display):
     # (1) plot cor between cohort size and gini
     fig, ax = plt.subplots(nrows=nrows, ncols=cols, sharex=True, sharey=True, figsize=(16,10))
     ax_outside = fig.add_subplot(111, frameon=False)
+    ax_outside.grid(False)
     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
     ax_outside.set_xlabel('Cohort Size', labelpad=20, fontweight="bold") 
     ax_outside.set_ylabel('Gini '+criterion_display+'', labelpad=20, fontweight="bold")
@@ -668,6 +656,7 @@ def plot_cohort_size_gini_cor(data, criterion, criterion_display):
     #(2) plot cor between cohort start year and gini
     fig2, ax2 = plt.subplots(nrows=nrows, ncols=cols, sharex=True, sharey=True, figsize=(16,10))
     ax_outside2 = fig2.add_subplot(111, frameon=False)
+    ax_outside2.grid(False)
     plt.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
     ax_outside2.set_xlabel('Cohort Start Year', labelpad=20, fontweight="bold") 
     ax_outside2.set_ylabel('Gini ('+criterion_display+')', labelpad=20, fontweight="bold")
@@ -720,10 +709,12 @@ def plot_cohort_size_gini_cor(data, criterion, criterion_display):
             
         
     res_cor_size.to_csv("fig/cor_cohortSize_gini_"+criterion+".csv")
+    print('plot_cohort_size_gini_cor fig')
     fig.show()
     fig.savefig("fig/cor_cohortSize_gini_"+criterion+".png", facecolor=fig.get_facecolor(), edgecolor='none', bbox_inches='tight')
     
     res_cor_year.to_csv("fig/cor_cohortStartYear_gini_"+criterion+".csv")
+    print('plot_cohort_size_gini_cor fig2')
     fig2.show()
     fig2.savefig("fig/cor_cohortStartYear_gini_"+criterion+".png", facecolor=fig2.get_facecolor(), edgecolor='none', bbox_inches='tight')
     
@@ -846,6 +837,7 @@ def plot_regress_performance_on_inequality(data, criterion, years, max_years):
     ax1.legend()
 
     fig.savefig("fig/regress_"+criterion+"_gini.png")
+    print('plot_regress_performance_on_inequality')
     plt.show()
     
     # return data for further analysis
@@ -930,7 +922,7 @@ def plot_cohort_participation_year_wise_for(authorScientificYearStartEnd, data, 
         ax2.set_xlabel('Career Age')
         ax2.set_ylabel(y_axis_label)
         ax2.set_yscale('log')
-
+    print('plot_cohort_participation_year_wise_for')
     plt.show()
     
     
@@ -944,4 +936,5 @@ def plot_cliffs_delta(cliffsD_cohorts, p1, p2, p3):
     plt.title("Cliff's Delta for "+p1+" and "+p2+" for "+p3)
     plt.xlabel('Cohort start year')
     plt.ylabel("Cliff's Delta")
+    print('plot_cliffs_delta')
     plt.show()
