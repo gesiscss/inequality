@@ -48,9 +48,6 @@ END_YEAR = 2016
 # + {"pycharm": {"is_executing": false}}
 credible_authors = pd.read_csv('derived-data/authors-scientific-extended.csv')
 print(credible_authors.shape)
-# -
-
-sns.distplot(credible_authors['h-index_15'])
 
 # + {"pycharm": {"is_executing": false}}
 years = sorted(credible_authors.start_year.unique())
@@ -96,10 +93,9 @@ for year in EARLY_CAREER_LEN_LIST_EXT[1:]:
         f'early_career_recognition_EC{year}_RC{year}'] - credible_authors[f'early_career_recognition_EC{EARLY_CAREER}_RC{EARLY_CAREER}']
     credible_authors[f'h_index_increase_{year}_{EARLY_CAREER}'] = credible_authors[f'h-index_{year}'] - credible_authors[f'h-index_{EARLY_CAREER}']
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Correlations
 
-# + {"hidden": true, "pycharm": {"is_executing": false}}
+# + {"pycharm": {"is_executing": false}}
 cols = ['succ_after_15y', 'h_index_increase_15_3', 'citation_increase_15_3', 'max_absence-0-15', 
         'early_career_prod_3', 'early_career_degree_3', 'early_career_coauthor_max_hindex_12', 
         'early_career_recognition_EC3_RC3', 'early_career_qual_12']
@@ -109,14 +105,14 @@ col_names_short = ['succ', 'hindex_incr', 'cit_incr', 'max_abs',
         'rec_3', 'qual_3']
 
 
-# + {"hidden": true, "pycharm": {"is_executing": false}}
+# + {"pycharm": {"is_executing": false}}
 cor_qual = credible_authors[cols].corr(method='kendall')
 
-# + {"hidden": true, "pycharm": {"is_executing": false}}
+# + {"pycharm": {"is_executing": false}}
 cor_qual
 #cor_qual['succ_after_15y'].sort_values()
+# -
 
-# + {"hidden": true}
 fig = plt.figure(figsize=(20, 10))
 ax = fig.add_subplot(111)
 cax = ax.matshow(cor_qual, vmin=-1, vmax=1)
@@ -129,13 +125,13 @@ ax.set_yticklabels(col_names_short)
 plt.show()
 
 
-# + {"hidden": true}
+# +
 #cor = credible_authors.corr()
 
-# + {"hidden": true}
+# +
 #cor_qual[f'h_index_increase_15_{EARLY_CAREER}'].sort_values()
 
-# + {"hidden": true}
+# +
 # sns.heatmap(cor, center=0,
 #             square=True, linewidths=.5, cbar_kws={"shrink": .5})
 # -
@@ -256,9 +252,10 @@ dropped_percent = credible_authors.groupby('start_year')['dropped_after_10'].sum
 dropped_percent = dropped_percent.to_frame().T
 
 dropped_percent_agg = credible_authors['dropped_after_10'].sum() / credible_authors['dropped_after_10'].count()
-
-
 # -
+
+credible_authors_stayed = credible_authors[credible_authors['dropped_after_10'] == False].copy()
+
 
 # 4 groups of features: productivity, social capital, quality/rec and gender
 def make_cols_lists(INCLUDE_PROD, INCLUDE_SOCIAL, INCLUDE_REC, INCLUDE_QUALITY, INCLUDE_GENDER, REMOVE_NONE_AUTHORS, 
@@ -268,7 +265,6 @@ def make_cols_lists(INCLUDE_PROD, INCLUDE_SOCIAL, INCLUDE_REC, INCLUDE_QUALITY, 
 
     if INCLUDE_YEAR:
         cols_std.append("start_year")
-        
     #scale dependant var
     if dep_var == "dropped_after_10":
         categorical_cols.append(dep_var)
@@ -277,6 +273,7 @@ def make_cols_lists(INCLUDE_PROD, INCLUDE_SOCIAL, INCLUDE_REC, INCLUDE_QUALITY, 
 
     if INCLUDE_PROD:
         cols_std.append(f'early_career_prod_{EARLY_CAREER}')
+        cols_std.append(f'ec_first_auth_{EARLY_CAREER}')
 
     if INCLUDE_SOCIAL:
         cols_std.append(f'early_career_degree_{EARLY_CAREER}')
@@ -289,6 +286,7 @@ def make_cols_lists(INCLUDE_PROD, INCLUDE_SOCIAL, INCLUDE_REC, INCLUDE_QUALITY, 
 
     if INCLUDE_QUALITY:
         cols_std.append(f'early_career_qual_{EARLY_CAREER}')
+        cols_std.append(f'early_career_qual_first_{EARLY_CAREER}')
 
     if INCLUDE_GENDER:
         categorical_cols.append('gender')
@@ -303,7 +301,9 @@ def make_cols_lists(INCLUDE_PROD, INCLUDE_SOCIAL, INCLUDE_REC, INCLUDE_QUALITY, 
 # TODO we scale data every time we train. Modify to keep data and add remove parameters. Somehow separate the prep from train
 def scale_columns(X):
     if len(X.columns) > 0:
-        standardized_cols = StandardScaler().fit_transform(X)
+        scaler = StandardScaler().fit(X)
+        print(scaler.mean_)
+        standardized_cols = scaler.transform(X)
     else: 
         standardized_cols = []
     return pd.DataFrame(standardized_cols, index=X.index, columns=X.columns)
@@ -456,7 +456,7 @@ def results_to_latex(results, name):
     ltx_file.close()
 
 
-# + {"code_folding": [0, 10, 20, 30, 40, 50, 61]}
+# + {"code_folding": [0, 10, 20, 30, 40, 50]}
 def get_baseline_vars():
     INCLUDE_PROD = 0
     INCLUDE_SOCIAL = 0
@@ -518,7 +518,8 @@ def get_full_vars():
     INCLUDE_YEAR = 1
     return INCLUDE_PROD, INCLUDE_SOCIAL, INCLUDE_REC, INCLUDE_QUALITY, INCLUDE_GENDER, REMOVE_NONE_AUTHORS,INCLUDE_VENUE,INCLUDE_YEAR
 
-def elastic_cohort(params_func,EARLY_CAREER, RECOGNITION_CUT, DV):
+# Run the elastic net across cohorts
+def elastic_cohort(credible_authors, params_func, EARLY_CAREER, RECOGNITION_CUT, DV):
     params = params_func()
     cols_std, categorical_cols = make_cols_lists(*params, EARLY_CAREER, RECOGNITION_CUT, DV)
     print(cols_std)
@@ -526,17 +527,17 @@ def elastic_cohort(params_func,EARLY_CAREER, RECOGNITION_CUT, DV):
     res = run_elastic_net_cohort(credible_authors, cols_std, categorical_cols, REMOVE_NONE_AUTHORS, DV)
     res = make_result_table(res)
     return res
-def elastic_agg(params_func,EARLY_CAREER, RECOGNITION_CUT, DV):
+def elastic_agg(credible_authors, params_func, EARLY_CAREER, RECOGNITION_CUT, DV):
     params = params_func()
     cols_std, categorical_cols = make_cols_lists(*params, EARLY_CAREER, RECOGNITION_CUT, DV)
     INCLUDE_YEAR = params[-1]
     REMOVE_NONE_AUTHORS = params[-3]
     res_agg = run_elastic_net_aggr(credible_authors, cols_std, categorical_cols, INCLUDE_YEAR, REMOVE_NONE_AUTHORS, DV)
     return res_agg
-# TODO: fix this, add team_size
-def elastic_agg_all(EARLY_CAREER, RECOGNITION_CUT, DV):
+# Run the elastic net across grouped data, for all variations
+def elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, DV):
     params_func_list = [get_baseline_vars, get_human_cap_vars, get_gender_vars, get_social_vars, get_symbolic_vars, get_full_vars]
-    res_agg_list = [elastic_agg(params_func,EARLY_CAREER, RECOGNITION_CUT, DV) for params_func in params_func_list]
+    res_agg_list = [elastic_agg(credible_authors, params_func, EARLY_CAREER, RECOGNITION_CUT, DV) for params_func in params_func_list]
     res_all_agg = pd.DataFrame(index=res_agg_list[-1].index, data=[])
     res_all_agg['baseline'] = res_agg_list[0]
     res_all_agg['human'] = res_agg_list[1]
@@ -545,63 +546,84 @@ def elastic_agg_all(EARLY_CAREER, RECOGNITION_CUT, DV):
     res_all_agg['symbolic'] = res_agg_list[4]
     res_all_agg['full_model'] = res_agg_list[5]
     if DV == 'dropped_after_10':
-        reorderlist = ['start_year', 'early_career_prod_3', 'early_career_recognition_EC3_RC3', 
+        reorderlist = ['start_year', 'early_career_prod_3', 'early_career_recognition_EC3_RC3', 'ec_first_auth_3',
                    'gender_f', 'gender_m', 'gender_none', 
                    'early_career_degree_3', 'early_career_coauthor_max_hindex_3', 'team_size_median_3',
-                   'quantiles_bin_3', 'early_career_qual_3',
+                   'quantiles_bin_3', 'early_career_qual_3', 'early_career_qual_first_3',
                    'cohort_size', 'drop_percentage','avg_precision']
         res_all_agg = res_all_agg.reindex(reorderlist)
         res_all_agg = res_all_agg.fillna('')
-        res_all_agg['names'] = ['start year', 'productivity', 'recognition', 
+        res_all_agg['names'] = ['start year', 'productivity', 'recognition', 'prod first author',
                        'male', 'female', 'none', 
                        'degree', 'coauthor hindex', 'median team size',
-                       'top-venue', 'quality',
+                       'top-venue', 'quality', 'quality first author',
                        'cohort size', '% dropouts','Average precision']
     else:
-        reorderlist = ['start_year', 'early_career_prod_3', 'early_career_recognition_EC3_RC3', 
+        reorderlist = ['start_year', 'early_career_prod_3', 'early_career_recognition_EC3_RC3', 'ec_first_auth_3',
                    'gender_f', 'gender_m', 'gender_none', 
                    'early_career_degree_3', 'early_career_coauthor_max_hindex_3', 'team_size_median_3',
-                   'quantiles_bin_3', 'early_career_qual_3',
+                   'quantiles_bin_3', 'early_career_qual_3',  'early_career_qual_first_3',
                    'cohort_size', 'neg_mean_squared_error', 'intercept','r2']
         res_all_agg = res_all_agg.reindex(reorderlist)
         res_all_agg = res_all_agg.fillna('')
-        res_all_agg['names'] = ['start year', 'productivity', 'recognition', 
+        res_all_agg['names'] = ['start year', 'productivity', 'recognition', 'prod first author', 
                        'male', 'female', 'none', 
                        'degree', 'coauthor hindex', 'median team size',
-                       'top-venue', 'quality',
+                       'top-venue', 'quality', 'quality first author',
                        'cohort size', 'MSE', 'intercept','R2']
     res_all_agg = res_all_agg.set_index('names')
     return res_all_agg
+def get_report_from_table(result_table):
+    report = []
+    for col in result_table.columns[:-4]:
+        float_vals = result_table[col].apply(lambda x: float(x.split('(')[0]))
+        num_positive = float_vals.gt(0).sum()
+        num_neg = float_vals.lt(0).sum()
+        report.append({
+            "feature": col, 
+            'num_positive': num_positive, 
+            'num_negative': num_neg,
+            'mean': float_vals.mean()})
+    return pd.DataFrame(report).set_index('feature')
 
 
 # + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Baseline Model
 
 # + {"hidden": true}
-res_cohort_base_hind = elastic_cohort(get_baseline_vars, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
-res_cohort_base_cita = elastic_cohort(get_baseline_vars, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
+res_cohort_base_hind = elastic_cohort(credible_authors, get_baseline_vars, EARLY_CAREER, RECOGNITION_CUT,
+                                      dv_hindex_incr)
+# res_cohort_base_cita = elastic_cohort(credible_authors, get_baseline_vars, EARLY_CAREER, RECOGNITION_CUT,
+#                                       dv_citations_incr)
 # res_cohort_base_drop = elastic_cohort(get_baseline_vars, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
 
 # + {"hidden": true}
-res_cohort_base_hind
+# res_cohort_base_hind
 
 # + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Human Capital Model
 
 # + {"hidden": true}
-res_cohort_humcap_hind = elastic_cohort(get_human_cap_vars, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
-res_cohort_humcap_cita = elastic_cohort(get_human_cap_vars, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
+res_cohort_humcap_hind = elastic_cohort(credible_authors, get_human_cap_vars, EARLY_CAREER, RECOGNITION_CUT,
+                                        dv_hindex_incr)
+# res_cohort_humcap_cita = elastic_cohort(credible_authors, get_human_cap_vars, EARLY_CAREER, RECOGNITION_CUT,
+#                                         dv_citations_incr)
 # res_cohort_humcap_drop = elastic_cohort(get_human_cap_vars, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
 
 # + {"hidden": true}
 res_cohort_humcap_hind
 
+# + {"hidden": true}
+r2_old_col = res_cohort_humcap_hind.r2.copy()
+
 # + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Gender Model
 
 # + {"hidden": true}
-res_cohort_gender_hind = elastic_cohort(get_gender_vars, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
-res_cohort_gender_cita = elastic_cohort(get_gender_vars, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
+res_cohort_gender_hind = elastic_cohort(credible_authors, get_gender_vars, EARLY_CAREER, RECOGNITION_CUT,
+                                        dv_hindex_incr)
+res_cohort_gender_cita = elastic_cohort(credible_authors, get_gender_vars, EARLY_CAREER, RECOGNITION_CUT,
+                                        dv_citations_incr)
 # res_cohort_gender_drop = elastic_cohort(get_gender_vars, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
 
 # + {"hidden": true}
@@ -611,8 +633,10 @@ res_cohort_gender_hind
 # ### Social Capital Model
 
 # + {"hidden": true}
-res_cohort_soccap_hind = elastic_cohort(get_social_vars, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
-res_cohort_soccap_cita = elastic_cohort(get_social_vars, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
+res_cohort_soccap_hind = elastic_cohort(credible_authors, get_social_vars, EARLY_CAREER, RECOGNITION_CUT,
+                                        dv_hindex_incr)
+res_cohort_soccap_cita = elastic_cohort(credible_authors, get_social_vars, EARLY_CAREER, RECOGNITION_CUT,
+                                        dv_citations_incr)
 # res_cohort_soccap_drop = elastic_cohort(get_social_vars, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
 
 # + {"hidden": true}
@@ -622,8 +646,10 @@ res_cohort_soccap_hind
 # ### Symbolic Capital
 
 # + {"hidden": true}
-res_cohort_symcap_hind = elastic_cohort(get_symbolic_vars, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
-res_cohort_symcap_cita = elastic_cohort(get_symbolic_vars, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
+res_cohort_symcap_hind = elastic_cohort(credible_authors, get_symbolic_vars, EARLY_CAREER, RECOGNITION_CUT,
+                                        dv_hindex_incr)
+res_cohort_symcap_cita = elastic_cohort(credible_authors, get_symbolic_vars, EARLY_CAREER, RECOGNITION_CUT,
+                                        dv_citations_incr)
 # res_cohort_symcap_drop = elastic_cohort(get_symbolic_vars, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
 
 # + {"hidden": true}
@@ -632,14 +658,25 @@ res_cohort_symcap_hind
 
 # ### Full Model (Extended Human Capital)
 
-res_cohort_full_hind = elastic_cohort(get_full_vars, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
-res_cohort_full_cita = elastic_cohort(get_full_vars, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
+res_cohort_full_hind = elastic_cohort(credible_authors, get_full_vars, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
+res_cohort_full_cita = elastic_cohort(credible_authors, get_full_vars, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
 
 
-res_cohort_full_drop = elastic_cohort(get_full_vars, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
+res_cohort_full_drop = elastic_cohort(credible_authors, get_full_vars, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
 res_cohort_full_drop
 
-res_cohort_full_hind
+get_report_from_table(res_cohort_full_drop)
+
+# #### Stayed
+
+#stayed
+res_cohort_full_hind_stay = elastic_cohort(credible_authors_stayed, get_full_vars,
+                                           EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
+res_cohort_full_hind_stay
+
+res_cohort_full_cita_stay = elastic_cohort(credible_authors_stayed, get_full_vars, EARLY_CAREER, RECOGNITION_CUT, 
+                                           dv_citations_incr)
+res_cohort_full_cita_stay
 
 # + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Plot prediction success over cohorts
@@ -690,16 +727,21 @@ plot_metric_over_cohorts(res_cohort_full_cita, 'r2', 'R squared', 'Citation incr
 # ## Aggregated Elastic Net Models
 # We test the effect of different groups of features (human capital, social capital and gender) on success/dropout
 
-elastic_agg_all(EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
+elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
 
-elastic_agg_all(EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
+elastic_agg_all(credible_authors_stayed, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
 
-elastic_agg_all(EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
+elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
 
+elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
 
-# ## Run different configs of the elastic model
+elastic_agg_all(credible_authors_stayed, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
+
 
 # + {"heading_collapsed": true, "cell_type": "markdown"}
+# ## Run different configs of the elastic model
+
+# + {"hidden": true, "cell_type": "markdown"}
 # #### Test train split 80-20
 
 # + {"code_folding": [], "hidden": true}
@@ -782,7 +824,7 @@ cols_all, cols_std, categorical_cols = make_cols_lists(INCLUDE_PROD, INCLUDE_SOC
                                                        INCLUDE_QUALITY, INCLUDE_GENDER, REMOVE_NONE_AUTHORS, EARLY_CAREER, RECOGNITION_CUT)
 run_elastic_predictions_test_train(cols_all, cols_std, categorical_cols, REMOVE_NONE_AUTHORS, EARLY_CAREER)
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"hidden": true, "cell_type": "markdown"}
 # #### Test predictive power over different number of observed years
 
 # + {"hidden": true}
@@ -800,7 +842,8 @@ def get_r2_increase(COHORT_START_YEARS, EARLY_CAREER_LEN_LIST_EXT, RECOGNITION_C
         print(f'{EARLY_CAREER}, {RECOGNITION_CUT}')
         DV_ = f'{DV}_15_{EARLY_CAREER}'
         print(DV_)
-        r2_increase[f'{DV}_{EARLY_CAREER}_{RECOGNITION_CUT}'] = elastic_cohort(get_full_vars,EARLY_CAREER, RECOGNITION_CUT, DV_)['r2']
+        r2_increase[f'{DV}_{EARLY_CAREER}_{RECOGNITION_CUT}'] = elastic_cohort(credible_authors, get_full_vars,
+                                                                               EARLY_CAREER, RECOGNITION_CUT, DV_)['r2']
     return r2_increase
 r2_increase_cit = get_r2_increase(COHORT_START_YEARS, EARLY_CAREER_LEN_LIST_EXT, RECOGNITION_CUT_OFF_LIST_EXT, 'citation_increase')
 r2_increase_hind = get_r2_increase(COHORT_START_YEARS, EARLY_CAREER_LEN_LIST_EXT, RECOGNITION_CUT_OFF_LIST_EXT, 'h_index_increase')
@@ -837,7 +880,7 @@ plt.gcf().text(0., 0.9, 'D', fontsize=fontsize*2)
 plt.subplots_adjust(left=0.25, right=0.95, bottom=0.2, top=0.9)
 plt.savefig('./fig/pred_r2_obs_years.pdf')
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"hidden": true, "cell_type": "markdown"}
 # #### Test predictive power over different number of years being predicted
 
 # + {"hidden": true}
@@ -852,7 +895,7 @@ def get_r2_increase_(COHORT_START_YEARS, EARLY_CAREER_LEN_LIST_EXT, RECOGNITION_
         print(f'{EARLY_CAREER}, {RECOGNITION_CUT}')
         DV_ = f'{DV}_{EARLY_CAREER}_3'
         print(DV_)
-        r2_increase[f'{DV}_{EARLY_CAREER}_3'] = elastic_cohort(get_full_vars,3, 3, DV_)['r2']
+        r2_increase[f'{DV}_{EARLY_CAREER}_3'] = elastic_cohort(credible_authors, get_full_vars, 3, 3, DV_)['r2']
     return r2_increase
 r2_increase_cit_pred = get_r2_increase_(COHORT_START_YEARS, EARLY_CAREER_LEN_LIST_EXT, RECOGNITION_CUT_OFF_LIST_EXT, 'citation_increase')
 r2_increase_hind_pred = get_r2_increase_(COHORT_START_YEARS, EARLY_CAREER_LEN_LIST_EXT, RECOGNITION_CUT_OFF_LIST_EXT, 'h_index_increase')
@@ -889,7 +932,7 @@ plt.savefig('./fig/pred_r2_per_years.pdf')
 # + {"hidden": true}
 stop
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"hidden": true, "cell_type": "markdown"}
 # #### predictor diffs
 
 # + {"hidden": true}
@@ -904,7 +947,7 @@ print("Average difference in r squared", sum(citations['r2']-h_index['r2'])/len(
 plt.legend()
 plt.show()
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"hidden": true, "cell_type": "markdown"}
 # #### gender diffs
 
 # + {"hidden": true}
@@ -920,7 +963,7 @@ plt.plot(res_cohort_full_hind.index ,np.zeros(len(res_cohort_full_hind)))
 plt.legend()
 plt.show()
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"hidden": true, "cell_type": "markdown"}
 # #### cohort size diffs
 
 # + {"hidden": true}
@@ -938,7 +981,7 @@ ax2.set_ylabel('Cohort size', color='C3')
 ax2.legend(loc=4)
 plt.show()
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"hidden": true, "cell_type": "markdown"}
 # #### cheating diffs
 
 # + {"hidden": true}
@@ -967,7 +1010,7 @@ plt.title("Difference between quality(15y) and recognition(3y)")
 plt.legend()
 plt.show()
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"hidden": true, "cell_type": "markdown"}
 # #### scaler diffs
 
 # + {"hidden": true}
@@ -994,7 +1037,7 @@ plt.show()
 # + {"hidden": true}
 # feature_table3.transpose()
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"hidden": true, "cell_type": "markdown"}
 # ### Best feature selection
 
 # + {"hidden": true}
@@ -1189,7 +1232,7 @@ for param in params_rfecv:
 # + {"hidden": true}
 selected_f
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"hidden": true, "cell_type": "markdown"}
 # ### Null experiment
 
 # + {"hidden": true}
