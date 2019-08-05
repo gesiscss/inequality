@@ -20,6 +20,9 @@ import calculate
 import matplotlib.pyplot as plt
 import numpy as np
 from calculate import gini, hhi, percentage_zeros, gini_nonzero
+gini_nonzero.display_name = 'Gini without zeroes'
+percentage_zeros.display_name = 'Percentage of zeroes'
+np.mean.display_name = 'Average'
 import seaborn as sns
 
 from credible_authors_ import DataStore
@@ -36,7 +39,7 @@ color_pale = ['#7f7f7f', '#f18c8d', '#9bbedb', '#a6d7a4', '#cba6d1', '#ffbf7f', 
 
 # ## Load data from csv
 
-data_store = DataStore([3])
+data_store = DataStore()
 all_papers_num_cit = data_store.all_papers_num_cit
 
 author_order = pd.read_csv('derived-data/publication_authors_order_2017.csv')
@@ -63,34 +66,57 @@ uncited_papers_network_first_auth.rename({'id1':'cit_id'}, axis='columns', inpla
 
 uncited_papers_network_first_auth.columns
 
-uncited_papers_network_first_auth.drop(['year', 'authors', 'num_authors', 'is_alpha', 'first_author'], axis='columns', inplace=True)
-
 uncited_papers_network_first_auth.head()
 
 cohort_year = 1995
 
 
-def plot_ineq_papers_cohort(cohort_year, years_in_future=5):
-    for career_year in [cohort_year, cohort_year+2, cohort_year+5, cohort_year+7, cohort_year+10]:
-        uncited_papers_network_cohort = uncited_papers_network_first_auth[uncited_papers_network_first_auth['start_year'] 
+def plot_ineq_papers_cohort(cohort_year, years_in_future=5, career_ages=[0,1,2,5,10], func=gini):
+    
+    uncited_papers_network_cohort = uncited_papers_network_first_auth[uncited_papers_network_first_auth['start_year'] 
                                                                           == cohort_year]
-        paper_cited_list = uncited_papers_network_cohort.groupby(['year_pub', 'pub_id']).agg({'year_cit': list})
+    paper_cited_list = uncited_papers_network_cohort.groupby(['year_pub', 'pub_id']).agg({'year_cit': list})
+    for career_year in [cohort_year + ca for ca in career_ages]:
+#         print(f"Career year {career_year}")
         paper_cited_list_year = paper_cited_list.loc[career_year]
+#         print('Cited in: ', end=' ')
         for i in range(career_year,career_year+years_in_future):
             paper_cited_list_year[f'cit_in_{i}'] = paper_cited_list_year['year_cit'].apply(lambda x: sum(list(map(lambda y: 
                                                                                                                   y==i, x))))
-        ginis = [gini(paper_cited_list_year[col].astype(float).values) for col in paper_cited_list_year.columns[1:]]
-        plt.plot(ginis, label=f'{career_year}')
-    plt.legend()
-    plt.title(f'Cohort: {cohort_year}')
+#             print(i, end=' ')
+#         print(paper_cited_list_year.columns)
+        ginis = [func(paper_cited_list_year[col].astype(float).values) for col in paper_cited_list_year.columns[1:]]
+#         print(ginis)
+        plt.plot(ginis, label=f'{career_year-cohort_year}')
+    plt.xlabel('Years after publishing')
+    if func.__name__ == 'gini': 
+        ylab = 'Gini in Recognition'
+    else:
+        ylab = func.display_name
+    plt.ylabel(ylab)
+    plt.legend(title='Career age when published')
+    plt.title(f'Paper inequality for Cohort: {cohort_year}')
     plt.show()
 
 
+plot_ineq_papers_cohort(2000, 5, func=percentage_zeros)
+
+plot_ineq_papers_cohort(2000, 5, func=gini_nonzero)
+plot_ineq_papers_cohort(1999, 5, func=gini_nonzero)
+plot_ineq_papers_cohort(1998, 5, func=gini_nonzero)
+plot_ineq_papers_cohort(1995, 5, func=gini_nonzero)
+plot_ineq_papers_cohort(1990, 5, func=gini_nonzero)
+
+plot_ineq_papers_cohort(2000, 5, func=np.mean)
+
+# %%time
 plot_ineq_papers_cohort(1990)
 plot_ineq_papers_cohort(1993)
 plot_ineq_papers_cohort(1995)
 plot_ineq_papers_cohort(1997)
 plot_ineq_papers_cohort(1999)
+plot_ineq_papers_cohort(2000)
+plot_ineq_papers_cohort(2001)
 
 
 
@@ -145,15 +171,13 @@ cohort_start_years = [year for year in years if year>=START_YEAR and year<= LAST
 
 # +
 #counts = counts[counts['year'] <= counts['end_year']]
+# -
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Cohort Sizes
 
-# + {"hidden": true}
 cohort_sizes = counts.groupby('start_year').agg({'author': 'nunique'})
 
 
-# + {"hidden": true}
 def plot_cohort_size_over_years():
     linewidth = 2
     fontsize = 18
@@ -323,23 +347,27 @@ plot_array_configs(cohort_counts_gini, get_config2('gini', 'Gini'), x_end=13)
 
 # + {"hidden": true}
 plot_array_configs(cohort_counts_gini_nonzero, get_config2('gini_nonzero', 'Gini$_{>0}$'), x_end=13)
-# -
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Inequality of early vs later work
 
+# + {"hidden": true}
 # publish_years = [[0,3], [3,6], [6,9], [0,1], [3,4], [6,7]]
 first_year = 0
 publish_years = [[i, i+1] for i in range(first_year,15)]
 author_gini_early_work = agg_data_early_late(citations_window, gini, publish_years)
 
+# + {"hidden": true}
 plot_heatmap(author_gini_early_work, publish_years, '_cum')
 
+# + {"hidden": true}
 plot_heatmap(author_gini_early_work, publish_years, '')
 
+# + {"hidden": true}
 years_list = [[0,1], [3,4], [6,7]]
 plot_early_late_work(author_gini_early_work, years_list)
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ##### Cumulative recognition
 
 # + {"hidden": true}
@@ -350,7 +378,7 @@ plot_early_late_work(author_gini_early_work, years_list)
 #                                letter='', 
 #                                x_start=end)
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ##### Non cumulative recognition
 
 # + {"hidden": true}

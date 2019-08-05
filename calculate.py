@@ -101,7 +101,6 @@ def gini(array):
     # Gini coefficient:
     return ((np.sum((2 * index - n  - 1) * array_copy)) / (n * np.sum(array_copy)))
 
-
 def gini_nonzero(array):
     array_copy = np.copy(array)
     #"""Calculate the Gini coefficient of a numpy array."""

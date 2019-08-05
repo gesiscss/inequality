@@ -48,6 +48,9 @@ END_YEAR = 2016
 # + {"pycharm": {"is_executing": false}}
 credible_authors = pd.read_csv('derived-data/authors-scientific-extended.csv')
 print(credible_authors.shape)
+# -
+
+team_size_year = pd.read_csv('derived-data/team_size_avg_per_year.csv')
 
 # + {"pycharm": {"is_executing": false}}
 years = sorted(credible_authors.start_year.unique())
@@ -301,8 +304,8 @@ def make_cols_lists(INCLUDE_PROD, INCLUDE_SOCIAL, INCLUDE_REC, INCLUDE_QUALITY, 
 # TODO we scale data every time we train. Modify to keep data and add remove parameters. Somehow separate the prep from train
 def scale_columns(X):
     if len(X.columns) > 0:
-        scaler = StandardScaler().fit(X)
-        print(scaler.mean_)
+        scaler = RobustScaler().fit(X)
+#         print(scaler.mean_)
         standardized_cols = scaler.transform(X)
     else: 
         standardized_cols = []
@@ -313,8 +316,10 @@ def prepare_data(credible_authors, cols_std, categorical_cols, REMOVE_NONE_AUTHO
     
     # Either scale OR INCLUDE start_year as control Var
     # scale dependent variables per year --> WE SHOULD ALSO SCALE OUTCOME VAR
+    
 #     for year in COHORT_START_YEARS:
 #         X.loc[X.start_year == year, cols_std] = scale_columns(X.loc[X.start_year == year, cols_std])
+
 #     scale over whole dataset
 #     X[cols_std] = scale_columns(X[cols_std])
     
@@ -352,6 +357,9 @@ def run_elastic_net_aggr(credible_authors, cols_std, categorical_cols, INCLUDE_Y
 def run_elastic_net_cohort(credible_authors, cols_std, categorical_cols, REMOVE_NONE_AUTHORS, dep_var):
     table_list = []
     X = prepare_data(credible_authors, cols_std, categorical_cols, REMOVE_NONE_AUTHORS)
+    # REMOVE AFTER TEST!!!!! TODO
+    X['ec_prod_4'] = X['early_career_prod_3']*-1 + np.random.normal(0, .1, X.shape[0])
+    print(np.corrcoef(X['ec_prod_4'], X['early_career_prod_3']))
     for year in COHORT_START_YEARS:
         X_year = X[X.start_year == year]
 #         y_year = credible_authors[credible_authors.start_year == year][dep_var]
@@ -456,7 +464,7 @@ def results_to_latex(results, name):
     ltx_file.close()
 
 
-# + {"code_folding": [0, 10, 20, 30, 40, 50]}
+# + {"code_folding": [0, 10, 20, 30, 40, 50, 62, 70, 78, 116]}
 def get_baseline_vars():
     INCLUDE_PROD = 0
     INCLUDE_SOCIAL = 0
@@ -599,21 +607,28 @@ res_cohort_base_hind = elastic_cohort(credible_authors, get_baseline_vars, EARLY
 
 # + {"hidden": true}
 # res_cohort_base_hind
+# -
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Human Capital Model
 
-# + {"hidden": true}
 res_cohort_humcap_hind = elastic_cohort(credible_authors, get_human_cap_vars, EARLY_CAREER, RECOGNITION_CUT,
                                         dv_hindex_incr)
 # res_cohort_humcap_cita = elastic_cohort(credible_authors, get_human_cap_vars, EARLY_CAREER, RECOGNITION_CUT,
 #                                         dv_citations_incr)
 # res_cohort_humcap_drop = elastic_cohort(get_human_cap_vars, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
 
-# + {"hidden": true}
+#no scale
 res_cohort_humcap_hind
 
-# + {"hidden": true}
+#robust
+res_cohort_humcap_hind
+
+#no scale
+res_cohort_humcap_hind.apply(lambda x: float(x['ec_prod_3'].split('(')[0])+float(x['ec_prod_4'].split('(')[0]), axis=1)
+
+#robust
+res_cohort_humcap_hind.apply(lambda x: float(x['ec_prod_3'].split('(')[0])+float(x['ec_prod_4'].split('(')[0]), axis=1)
+
 r2_old_col = res_cohort_humcap_hind.r2.copy()
 
 # + {"heading_collapsed": true, "cell_type": "markdown"}
@@ -667,13 +682,16 @@ res_cohort_full_drop
 
 get_report_from_table(res_cohort_full_drop)
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Stayed
 
+# + {"hidden": true}
 #stayed
 res_cohort_full_hind_stay = elastic_cohort(credible_authors_stayed, get_full_vars,
                                            EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
 res_cohort_full_hind_stay
 
+# + {"hidden": true}
 res_cohort_full_cita_stay = elastic_cohort(credible_authors_stayed, get_full_vars, EARLY_CAREER, RECOGNITION_CUT, 
                                            dv_citations_incr)
 res_cohort_full_cita_stay
