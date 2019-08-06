@@ -37,43 +37,100 @@ reload(calculate)
 color_full = ['#000000', '#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#ffff33', '#a65628', '#f781bf', '#999999']
 color_pale = ['#7f7f7f', '#f18c8d', '#9bbedb', '#a6d7a4', '#cba6d1', '#ffbf7f', '#ffff99', '#d2aa93', '#fbc0df', '#cccccc']
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Load data from csv
 
+# + {"hidden": true}
 data_store = DataStore()
 all_papers_num_cit = data_store.all_papers_num_cit
 
+# + {"hidden": true}
 author_order = pd.read_csv('derived-data/publication_authors_order_2017.csv')
 
-uncited_papers_network = data_store.uncited_papers_network
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
+# ### Citations and uncited papers
+# Dataset with all the citations to papers, together with papers that received no citations (cit_id is null)
 
-authorPublicationData.columns
-
+# + {"hidden": true}
 uncited_papers_network = authorPublicationData.merge(data_store.authorCitationsData, left_on='pub_id',
                                                                      right_on='id2', how='left',
                                                                      suffixes=('_pub', '_cit'))
 
+# + {"hidden": true}
 uncited_papers_network_first_auth = uncited_papers_network.merge(author_order[['first_author', 'pub_id']], 
                                                                  left_on=['author', 'pub_id'], 
                                                                  right_on=['first_author', 'pub_id'],how='inner')
 
-uncited_papers_network_first_auth.columns
-
+# + {"hidden": true}
 uncited_papers_network_first_auth = uncited_papers_network_first_auth.merge(data_store.credible_authors[
     ['author', 'start_year']], on='author', how='left')
 
+# + {"hidden": true}
 uncited_papers_network_first_auth.drop('id2', axis='columns', inplace=True)
 uncited_papers_network_first_auth.rename({'id1':'cit_id'}, axis='columns', inplace=True)
 
-uncited_papers_network_first_auth.columns
+# + {"hidden": true}
+career_len = data_store.credible_authors[['author', 'career_length']]
+career_len_10 = career_len[career_len['career_length'] >= 10]
 
-uncited_papers_network_first_auth.head()
+# + {"hidden": true}
+uncited_papers_network_first_auth_10 = uncited_papers_network_first_auth.merge(
+    career_len_10['author'], how='inner', on='author')
 
-cohort_year = 1995
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
+# ### To remove - counts, author data, etc
+
+# + {"hidden": true}
+authorStartEndCareerData = pd.read_csv('./derived-data/authors-scientific-extended.csv')
+authorStartEndCareerData.head()
+
+# + {"hidden": true}
+authorPublicationData = pd.read_csv('derived-data/author-publications.csv')
+author_year_numPub = authorPublicationData.groupby(['author', 'year'])['pub_id'].count().reset_index()
+author_year_numPub = author_year_numPub.rename(columns={'pub_id':'num_pub'})
+
+# + {"hidden": true}
+authorPublicationData.head()
+
+# + {"hidden": true, "cell_type": "markdown"}
+# Load in citation window data:
+
+# + {"hidden": true}
+WINDOW_SIZE = 3
+citations_window = pd.read_csv(f'derived-data/citations_window_{WINDOW_SIZE}.csv')
+citations_window.head()
+
+# + {"hidden": true}
+citations_window = citations_window.merge(authorStartEndCareerData[['author', 'dropped_after_10']], on='author', how='left')
+
+# + {"hidden": true}
+# citations_window[citations_window['author'] == 'ke xu']
+
+# + {"hidden": true}
+counts = citations_window
+
+# + {"hidden": true}
+years = authorStartEndCareerData['start_year'].unique()
+years = sorted(years)
+
+cohort_start_years = [year for year in years if year>=START_YEAR and year<= LAST_START_YEAR]
 
 
-def plot_ineq_papers_cohort(cohort_year, years_in_future=5, career_ages=[0,1,2,5,10], func=gini):
+# + {"hidden": true, "cell_type": "markdown"}
+# Is this how it's done in the other analyses?
+#
+# Do this only if interested in cohorts:
+
+# + {"hidden": true}
+#counts = counts[counts['year'] <= counts['end_year']]
+# -
+
+# ## Inequality of papers
+
+def plot_ineq_papers_cohort(cohort_year, years_in_future=5, career_ages=[0,1,2,5,10], func=gini,
+                           data=uncited_papers_network_first_auth):
     
-    uncited_papers_network_cohort = uncited_papers_network_first_auth[uncited_papers_network_first_auth['start_year'] 
+    uncited_papers_network_cohort = data[data['start_year'] 
                                                                           == cohort_year]
     paper_cited_list = uncited_papers_network_cohort.groupby(['year_pub', 'pub_id']).agg({'year_cit': list})
     for career_year in [cohort_year + ca for ca in career_ages]:
@@ -99,79 +156,21 @@ def plot_ineq_papers_cohort(cohort_year, years_in_future=5, career_ages=[0,1,2,5
     plt.show()
 
 
-plot_ineq_papers_cohort(2000, 5, func=percentage_zeros)
+# ### Authors with career len > 10
 
+plot_ineq_papers_cohort(2000, 5, func=percentage_zeros, data=uncited_papers_network_first_auth_10)
+
+plot_ineq_papers_cohort(2000, 5, func=gini, data=uncited_papers_network_first_auth_10)
+
+plot_ineq_papers_cohort(2000, 5, func=gini_nonzero, data=uncited_papers_network_first_auth_10)
+
+# ### All authors
+
+plot_ineq_papers_cohort(2000, 5, func=percentage_zeros)
 plot_ineq_papers_cohort(2000, 5, func=gini_nonzero)
-plot_ineq_papers_cohort(1999, 5, func=gini_nonzero)
-plot_ineq_papers_cohort(1998, 5, func=gini_nonzero)
-plot_ineq_papers_cohort(1995, 5, func=gini_nonzero)
-plot_ineq_papers_cohort(1990, 5, func=gini_nonzero)
+plot_ineq_papers_cohort(2000, 5, func=gini)
 
 plot_ineq_papers_cohort(2000, 5, func=np.mean)
-
-# %%time
-plot_ineq_papers_cohort(1990)
-plot_ineq_papers_cohort(1993)
-plot_ineq_papers_cohort(1995)
-plot_ineq_papers_cohort(1997)
-plot_ineq_papers_cohort(1999)
-plot_ineq_papers_cohort(2000)
-plot_ineq_papers_cohort(2001)
-
-
-
-paper_cited_list
-
-plt.plot(ginis)
-plt.plot(ginis_1995)
-
-a[a['pub_id'] == 'c4998229-c238-4ef5-8fdc-91974ac13330']
-
-uncited_papers_network[uncited_papers_network['pub_id'] == 'c4998229-c238-4ef5-8fdc-91974ac13330']
-
-uncited_papers_network['pub_id'].sample(5)
-
-
-
-
-
-authorStartEndCareerData = pd.read_csv('./derived-data/authors-scientific-extended.csv')
-authorStartEndCareerData.head()
-
-authorPublicationData = pd.read_csv('derived-data/author-publications.csv')
-author_year_numPub = authorPublicationData.groupby(['author', 'year'])['pub_id'].count().reset_index()
-author_year_numPub = author_year_numPub.rename(columns={'pub_id':'num_pub'})
-
-authorPublicationData.head()
-
-# Load in citation window data:
-
-WINDOW_SIZE = 3
-citations_window = pd.read_csv(f'derived-data/citations_window_{WINDOW_SIZE}.csv')
-citations_window.head()
-
-citations_window = citations_window.merge(authorStartEndCareerData[['author', 'dropped_after_10']], on='author', how='left')
-
-# +
-# citations_window[citations_window['author'] == 'ke xu']
-# -
-
-counts = citations_window
-
-# +
-years = authorStartEndCareerData['start_year'].unique()
-years = sorted(years)
-
-cohort_start_years = [year for year in years if year>=START_YEAR and year<= LAST_START_YEAR]
-# -
-
-# Is this how it's done in the other analyses?
-#
-# Do this only if interested in cohorts:
-
-# +
-#counts = counts[counts['year'] <= counts['end_year']]
-# -
 
 # ## Cohort Sizes
 
@@ -320,11 +319,10 @@ def agg_data_early_late(citations_window, func, publish_years):
     return author_early_work
 
 
-# -
-
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Ginis
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # #### Cumulative
 
 # + {"hidden": true}
@@ -339,7 +337,7 @@ plot_array_configs(cohort_counts_gini, get_config1('gini', 'Gini'))
 # + {"hidden": true}
 plot_array_configs(cohort_counts_gini_nonzero, get_config1('gini_nonzero', 'Gini$_{>0}$'))
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # #### Time Windows
 
 # + {"hidden": true}
@@ -348,7 +346,7 @@ plot_array_configs(cohort_counts_gini, get_config2('gini', 'Gini'), x_end=13)
 # + {"hidden": true}
 plot_array_configs(cohort_counts_gini_nonzero, get_config2('gini_nonzero', 'Gini$_{>0}$'), x_end=13)
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # #### Inequality of early vs later work
 
 # + {"hidden": true}
@@ -414,21 +412,26 @@ plot_array_configs(cohort_counts_pzero, get_config1('pzero', '%0'))
 
 # + {"hidden": true}
 plot_array_configs(cohort_counts_pzero, get_config2('pzero', '%0'), x_end=13)
-# -
-
-# ## Remove dropouts
-
-citations_window_stayed = citations_window[citations_window.dropped_after_10 == False]
-
-# ### Gini
-
-cohort_counts_stayed_gini = agg_data_df(citations_window_stayed, gini, 'gini')
-
-plot_array_configs(cohort_counts_stayed_gini, get_config1('gini', 'Gini'), name_ext='_stay') #3
-
-plot_array_configs(cohort_counts_stayed_gini, get_config2('gini', 'Gini'), x_end=13, name_ext='_stay') #3
 
 # + {"heading_collapsed": true, "cell_type": "markdown"}
+# ## Remove dropouts
+
+# + {"hidden": true}
+citations_window_stayed = citations_window[citations_window.dropped_after_10 == False]
+
+# + {"hidden": true, "cell_type": "markdown"}
+# ### Gini
+
+# + {"hidden": true}
+cohort_counts_stayed_gini = agg_data_df(citations_window_stayed, gini, 'gini')
+
+# + {"hidden": true}
+plot_array_configs(cohort_counts_stayed_gini, get_config1('gini', 'Gini'), name_ext='_stay') #3
+
+# + {"hidden": true}
+plot_array_configs(cohort_counts_stayed_gini, get_config2('gini', 'Gini'), x_end=13, name_ext='_stay') #3
+
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ### P zero
 
 # + {"hidden": true}
@@ -436,7 +439,7 @@ cohort_counts_stayed_pzero = agg_data_df(citations_window_stayed, percentage_zer
 plot_array_configs(cohort_counts_stayed_pzero, get_config1('pzero', '%0'), name_ext='_stay')
 plot_array_configs(cohort_counts_stayed_pzero, get_config2('pzero', '%0'), x_end=13, name_ext='_stay') #plot 5
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ### Early vs late
 
 # + {"hidden": true}
