@@ -29,7 +29,7 @@ def mann_whitney_effect_size(a, b, alternative='two-sided', effect_formula='r'):
         effect = (z**2)/(n1+n2-1)
     elif effect_formula == 'common_language':
         effect = statistic/(n1*n2)
-    return abs(effect), statistic, pvalue
+    return effect, statistic, pvalue
 
 def cohen_d(x_means,y_means, x_std, y_std):
     nx = len(x_means)

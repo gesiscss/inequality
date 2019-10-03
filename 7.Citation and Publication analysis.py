@@ -16,16 +16,23 @@
 
 # +
 import pandas as pd
-import calculate
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import math
+
+# user defined modules
+import calculate, plot
 from calculate import gini, hhi, percentage_zeros, gini_nonzero
+from credible_authors_ import DataStore
+
+import warnings
+warnings.filterwarnings("ignore")
+
+# Configuration - needed?
 gini_nonzero.display_name = 'Gini without zeroes'
 percentage_zeros.display_name = 'Percentage of zeroes'
 np.mean.display_name = 'Average'
-import seaborn as sns
-
-from credible_authors_ import DataStore
 
 START_YEAR = 1970
 LAST_START_YEAR = 2000
@@ -33,100 +40,382 @@ LAST_START_YEAR = 2000
 
 from importlib import reload
 reload(calculate)
+reload(plot)
 
 color_full = ['#000000', '#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#ffff33', '#a65628', '#f781bf', '#999999']
 color_pale = ['#7f7f7f', '#f18c8d', '#9bbedb', '#a6d7a4', '#cba6d1', '#ffbf7f', '#ffff99', '#d2aa93', '#fbc0df', '#cccccc']
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Load data from csv
 
-# + {"hidden": true}
 data_store = DataStore()
 all_papers_num_cit = data_store.all_papers_num_cit
 
-# + {"hidden": true}
 author_order = pd.read_csv('derived-data/publication_authors_order_2017.csv')
 
-# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
-# ### Citations and uncited papers
-# Dataset with all the citations to papers, together with papers that received no citations (cit_id is null)
+credible_authors = pd.read_csv('derived-data/authors-scientific-extended.csv')
 
-# + {"hidden": true}
-uncited_papers_network = authorPublicationData.merge(data_store.authorCitationsData, left_on='pub_id',
-                                                                     right_on='id2', how='left',
-                                                                     suffixes=('_pub', '_cit'))
+# ### Window counts
 
-# + {"hidden": true}
-uncited_papers_network_first_auth = uncited_papers_network.merge(author_order[['first_author', 'pub_id']], 
-                                                                 left_on=['author', 'pub_id'], 
-                                                                 right_on=['first_author', 'pub_id'],how='inner')
-
-# + {"hidden": true}
-uncited_papers_network_first_auth = uncited_papers_network_first_auth.merge(data_store.credible_authors[
-    ['author', 'start_year']], on='author', how='left')
-
-# + {"hidden": true}
-uncited_papers_network_first_auth.drop('id2', axis='columns', inplace=True)
-uncited_papers_network_first_auth.rename({'id1':'cit_id'}, axis='columns', inplace=True)
-
-# + {"hidden": true}
-career_len = data_store.credible_authors[['author', 'career_length']]
-career_len_10 = career_len[career_len['career_length'] >= 10]
-
-# + {"hidden": true}
-uncited_papers_network_first_auth_10 = uncited_papers_network_first_auth.merge(
-    career_len_10['author'], how='inner', on='author')
-
-# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
-# ### To remove - counts, author data, etc
-
-# + {"hidden": true}
-authorStartEndCareerData = pd.read_csv('./derived-data/authors-scientific-extended.csv')
-authorStartEndCareerData.head()
-
-# + {"hidden": true}
-authorPublicationData = pd.read_csv('derived-data/author-publications.csv')
-author_year_numPub = authorPublicationData.groupby(['author', 'year'])['pub_id'].count().reset_index()
-author_year_numPub = author_year_numPub.rename(columns={'pub_id':'num_pub'})
-
-# + {"hidden": true}
-authorPublicationData.head()
-
-# + {"hidden": true, "cell_type": "markdown"}
 # Load in citation window data:
 
-# + {"hidden": true}
 WINDOW_SIZE = 3
 citations_window = pd.read_csv(f'derived-data/citations_window_{WINDOW_SIZE}.csv')
 citations_window.head()
 
-# + {"hidden": true}
-citations_window = citations_window.merge(authorStartEndCareerData[['author', 'dropped_after_10']], on='author', how='left')
+citations_window_first = pd.read_csv(f'derived-data/citations_window_ONLY_first.csv')
+citations_window_first.head()
 
-# + {"hidden": true}
-# citations_window[citations_window['author'] == 'ke xu']
+data_store.credible_authors_instance.columns
 
-# + {"hidden": true}
+citations_window = citations_window.merge(credible_authors[['author', 'dropped_after_10']], on='author', how='left')
+
 counts = citations_window
 
-# + {"hidden": true}
-years = authorStartEndCareerData['start_year'].unique()
+# +
+years = data_store.credible_authors['start_year'].unique()
 years = sorted(years)
 
 cohort_start_years = [year for year in years if year>=START_YEAR and year<= LAST_START_YEAR]
-
-
-# + {"hidden": true, "cell_type": "markdown"}
-# Is this how it's done in the other analyses?
-#
-# Do this only if interested in cohorts:
-
-# + {"hidden": true}
-#counts = counts[counts['year'] <= counts['end_year']]
 # -
 
+# this is not first author
+citations_window[['year', 'author', 'start_year', 'end_year', 'gender', 'career_age', 'cum_num_cit', 'cum_num_pub']].head()
+
+# ### Citations and uncited papers
+# Dataset with all the citations to papers, together with papers that received no citations (cit_id is null)
+
+uncited_papers_network = data_store.authorPublicationData.merge(data_store.authorCitationsData, left_on='pub_id',
+                                                                     right_on='id2', how='left',
+                                                                     suffixes=('_pub', '_cit'))
+
+# by merging here on 'inner', we remove duplicates with many authors
+uncited_papers_network_first_auth = uncited_papers_network.merge(author_order[['first_author', 'pub_id']], 
+                                                                 left_on=['author', 'pub_id'], 
+                                                                 right_on=['first_author', 'pub_id'],how='inner')
+
+# add start year
+uncited_papers_network_first_auth = uncited_papers_network_first_auth.merge(data_store.credible_authors[
+    ['author', 'start_year']], on='author', how='left')
+
+uncited_papers_network_first_auth.drop('id2', axis='columns', inplace=True)
+uncited_papers_network_first_auth.rename({'id1':'cit_id'}, axis='columns', inplace=True)
+
+career_len = data_store.credible_authors[['author', 'career_length']]
+# career_len_10 = career_len[career_len['career_length'] >= 10]
+
+
+# ### UnCited papers network - first author
+
+# uncited_papers_network_first_auth
+# author == first_author
+# contains all papers, with their first authors. 
+# duplicate rows for pub_id are different citations, with cit_id for the citing paper
+# cit_id == NaN -> paper never cited
+uncited_papers_network_first_auth.head()
+
+# aggregate citations, and get the count - per author, per year pub, per paper, per year cited
+auth_year_pub_cit_count = uncited_papers_network_first_auth.groupby(
+    ['author', 'year_pub', 'pub_id', 'year_cit']).agg({'cit_id': 'count'})
+auth_year_pub_cit_count = auth_year_pub_cit_count.reset_index()
+
+# add start year
+auth_year_pub_cit_count = auth_year_pub_cit_count.merge(data_store.credible_authors[['author', 'start_year']], 
+                                                        on='author', how='left')
+
+# remove cited before published. Could be right, but makes the graphs weird
+auth_year_pub_cit_count = auth_year_pub_cit_count[auth_year_pub_cit_count.year_cit >= auth_year_pub_cit_count.year_pub]
+
+# take the best paper in a specific year cited
+agg_cit_per_auth_year = auth_year_pub_cit_count.groupby(['start_year', 'author', 'year_pub', 'year_cit']).agg(
+    {'cit_id': 'max'}).reset_index()
+
+# take the average in a specific year cited
+agg_cit_per_auth_year_avg = auth_year_pub_cit_count.groupby(['start_year', 'author', 'year_pub', 'year_cit']).agg(
+    {'cit_id': 'mean'}).reset_index()
+
+# veryfied this df for correctness with a different calc method
+cohort_size_first_auth = uncited_papers_network_first_auth.groupby('start_year')['author'].nunique()
+cohort_size_first_auth = cohort_size_first_auth.reset_index()
+cohort_size_first_auth.rename({'author':'cohort_size'}, axis=1, inplace=True)
+
+# add start year
+agg_cit_per_auth_year = agg_cit_per_auth_year.merge(cohort_size_first_auth, on='start_year', how='left')
+agg_cit_per_auth_year_avg = agg_cit_per_auth_year_avg.merge(cohort_size_first_auth, on='start_year', how='left')
+
+agg_cit_per_auth_year = agg_cit_per_auth_year[(agg_cit_per_auth_year.start_year >= 1970) &
+                                              (agg_cit_per_auth_year.start_year <=2000)]
+agg_cit_per_auth_year_avg = agg_cit_per_auth_year_avg[(agg_cit_per_auth_year_avg.start_year >= 1970) &
+                                              (agg_cit_per_auth_year_avg.start_year <=2000)]
+
+# #### Data interrogation 
+
+uncited_papers_network_first_auth.dropna().cit_id.count()
+
+uncited_papers_network_first_auth.year_pub.min()
+
+# author_order[author_order.pub_id == 'a43af2b6-93e5-480f-9678-8394483315a8']
+uncited_papers_network_first_auth[uncited_papers_network_first_auth.pub_id == 'a43af2b6-93e5-480f-9678-8394483315a8']
+
+uncited_papers_network_first_auth['pub_id'].nunique()
+
+auth_year_pub_cit_count[(auth_year_pub_cit_count.start_year == 1999) & 
+                        (auth_year_pub_cit_count.year_pub == 1999) &
+#                         (auth_year_pub_cit_count.year_cit == 1999) &
+                        (auth_year_pub_cit_count.author == 'joseph mitola iii')].sort_values('year_cit')
+
+# these numbers are right, according to the combined df in 0.Data Preproc.
+# this means i am grabbing all the citations by all the papers, and that the filters are fixed
+agg_cit_per_auth_year[(agg_cit_per_auth_year.start_year == 1999) & 
+                        (agg_cit_per_auth_year.year_pub == 1999) &
+#                         (agg_cit_per_auth_year.year_cit == 1999) &
+                        (agg_cit_per_auth_year.author == 'joseph mitola iii')].sort_values('year_cit')
+
+# number of first authors in 1994
+uncited_papers_network_first_auth[uncited_papers_network_first_auth.start_year == 1994]['author'].nunique()
+
+agg_cit_per_auth_year[(agg_cit_per_auth_year.start_year == 1994)]['author'].nunique()# & (agg_cit_per_auth_year.year_cit == 1994)]
+
+# i guess also all authors in 1994
+auths_1994 = agg_cit_per_auth_year[(agg_cit_per_auth_year.start_year == 1994) & 
+                      (agg_cit_per_auth_year.year_cit == 1994)]['author'].unique()
+print(auths_1994.shape)
+
+author_order = author_order.merge(data_store.credible_authors[
+    ['author', 'start_year']], left_on='first_author', right_on='author', how='left')
+
+# all first authors in 1994
+all_auths_1994 = author_order[author_order.start_year==1994]['author'].unique()
+print(all_auths_1994.shape)
+
+# ### top k percent 
+
+agg_cit_per_auth_year['cit_id'] = agg_cit_per_auth_year['cit_id'].astype(int)
+
+
+# TODO: Flaw: array is not full. Taking k percent of non zeros. Add the missing zeros
+def perc_owned_by_top_k(arr, size, k):
+    arr = arr.values
+    top_k = int(round((size/100)*k))
+    return sum(arr[arr.argsort()[-top_k:]])/sum(arr)
+
+
+k=1
+perc_owned = agg_cit_per_auth_year.groupby(['start_year', 'year_pub', 'year_cit'])['cit_id', 'cohort_size'].apply(
+    lambda x: perc_owned_by_top_k(x['cit_id'], x['cohort_size'].max(), k)).reset_index()
+perc_owned.rename({0: 'perc_owned'}, axis=1, inplace=True)
+
+data = perc_owned
+metric = 'perc_owned'
+for start_year in data.start_year.unique()[-10::2]:
+    cohort_data = data[data.start_year == start_year]
+    for year_pub in cohort_data.year_pub.unique()[:11:3]:
+        one_year = cohort_data[cohort_data.year_pub == year_pub]
+        plt.plot(range(0,5), one_year[metric][:5], label=f'Pubs in {year_pub}')
+    plt.ylabel(f'Percent of citations held by top {k}perc')
+    plt.xlabel('T - time after publishing')
+    plt.title(f'Cohort start year: {start_year}')
+    plt.legend()
+    plt.show()
+
+
+# ### gini
+
+def gini_expand(arr, size):
+#     print(len(arr), size)
+    num_zer = size - len(arr)
+    arr_full = np.append(arr, np.zeros(num_zer))
+    return gini(arr_full)
+
+
+def get_expanded_gini_df(data):
+    df_gini = data.groupby(['start_year', 'year_pub', 'year_cit'])['cit_id', 'cohort_size'].apply(
+        lambda x: gini_expand(x['cit_id'], x['cohort_size'].max())).reset_index()
+    df_gini.rename({0: 'gini'}, axis=1, inplace=True)
+    return df_gini
+
+
+# +
+df_gini_max = get_expanded_gini_df(agg_cit_per_auth_year)
+df_gini_avg = get_expanded_gini_df(agg_cit_per_auth_year_avg)
+
+df_gini_max['career_age'] = df_gini_max['year_pub'] - df_gini_max['start_year'] + 1
+df_gini_avg['career_age'] = df_gini_avg['year_pub'] - df_gini_avg['start_year'] + 1
+
+
+# -
+
+# The inequality is very big because of the granularity of this chart. 
+# We first divide people into cohorts. Then for different career agees, we divide the paper's citations across Time after publishing, T. This makes the data very sparse, and we end up with a huge number of zeroes. <br>
+# Example: <br>
+# Published in 1991, cited in 1992 and 1995 <br>
+# Array: [0, X, 0, 0, Y]
+
+def plot_ineq_(data, metric, ext):
+    fig, axs = plt.subplots(2,2,figsize=(15,10))
+    i = 0
+    flat_axes = list(axs.flat)
+    for start_year in [1970, 1980, 1990, 2000]:
+        ax = flat_axes[i]
+        cohort_data = data[data.start_year == start_year]
+        for year_pub in cohort_data.year_pub.unique()[:11:3]:
+            one_year = cohort_data[cohort_data.year_pub == year_pub]
+            ax.plot(range(0,5), one_year[metric][:5], label=f'Career age {year_pub-start_year+1}')
+        ax.set_title(f'Cohort start year: {start_year}')
+        ax.legend()
+        i+=1
+    for ax in axs.flat:
+        ax.set(xlabel='T - time after publishing', ylabel='Gini over citations')
+    fig.suptitle(f"Aggregation metric: {ext}")
+    fig.savefig(f'./fig-7-notebook/first_auth_ineq_gini_{ext}.pdf')
+    fig.show()
+plot_ineq_(df_gini_max, 'gini', 'max')
+# plot_ineq_(df_gini_avg, 'gini', 'avg')
+
+df_gini_max_y5 = df_gini_max[df_gini_max.year_cit == df_gini_max.year_pub + 4]
+career_ages = [1,2,4,7,10]
+df_gini_max_y5 = df_gini_max_y5[df_gini_max_y5['career_age'].isin(career_ages)]
+
+# +
+career_ages = [1,2,4,7,10]
+career_ages = [str(x) for x in career_ages]
+start_years_gini = [1970, 1980, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999]
+data = df_gini_max_y5[df_gini_max_y5.start_year.isin(start_years_gini)]
+
+fig, axs = plt.subplots(2, 6, sharex='col', sharey='row',
+                        gridspec_kw={'hspace': 0, 'wspace': 0}, figsize=(15,7))
+
+ax_outside = fig.add_subplot(111, frameon=False)
+ax_outside.grid(False)
+ax_outside.axes.get_xaxis().set_ticks([])
+ax_outside.axes.get_yaxis().set_ticks([])
+
+markers = ['o', 'x', '.', '+', '^']
+
+for ax, year in zip(axs.flat, start_years_gini):
+    x = list(range(5))
+    y = data[data.start_year == year]['gini']
+    for marker, x_pos, y_val in zip(markers, x, y):
+        ax.scatter(x_pos, y_val, marker=marker, label=f'Career age {career_ages[x_pos]}')
+    ax.set_xlabel(year)
+    ax.set_xticks(x)
+
+for ax in axs.flat:
+#     ax.label_outer()
+    ax.grid(False)
+    ax.set_xticklabels(career_ages)
+for ax in axs.flat[:6]:
+    ax.xaxis.set_label_position('top') 
+handles, labels = ax.get_legend_handles_labels()
+fig.legend(handles, labels, loc=(0.84,0.22))
+
+ax_outside.set_xlabel('Cohort start year', labelpad=50, fontweight='bold')
+ax_outside.set_ylabel('Gini inequality five years after publishing - MAX', labelpad=50, fontweight='bold')
+fig.savefig(f'./fig-7-notebook/first_auth_ineq_gini_max_squeze.pdf')
+# -
+
+# ### Cliffs Delta
+
+# +
+cum_cit_pub_agg_first = citations_window_first.groupby(['start_year', 'career_age', 'gender']).agg({
+    'cum_num_pub_first': list,
+    'cum_num_cit_first': list
+}).reset_index()
+
+cum_cit_pub_agg = citations_window.groupby(['start_year', 'career_age', 'gender']).agg({
+    'cum_num_pub': list,
+    'cum_num_cit': list
+}).reset_index()
+
+
+# + {"code_folding": [0]}
+def get_cohort_effect_size(cohort_careerage_df, metric, gen_a='m', gen_b='f', eff_form='r'):
+    data = cohort_careerage_df[cohort_careerage_df.gender.isin([gen_a, gen_b])]
+    data = data.set_index(['start_year', 'career_age', 'gender']).unstack(level=-1)
+    data.columns = ['_'.join(col) for col in data.columns]
+    data['cliffd_m_f'] = data.apply(lambda x: calculate.cliffsD(x[f'{metric}_{gen_a}'], x[f'{metric}_{gen_b}']), axis=1)
+    mwu = data.apply(lambda x: calculate.mann_whitney_effect_size(
+        x[f'{metric}_{gen_a}'], x[f'{metric}_{gen_b}'], effect_formula=eff_form), axis=1).apply(pd.Series)
+    mwu.columns = ['effect', 'statistic', 'pvalue']
+    data = data.join(mwu)
+    data = data[['cliffd_m_f', 'effect', 'statistic', 'pvalue']]
+    data = data.reset_index()
+    return data
+
+
+# + {"code_folding": []}
+def plot_cohort_diffs_over_ages(stats, criterion, criterion_display, ext=''):
+    # x - career age
+    plt = plot.init_plotting()
+    # (3) fig3
+    # ==============================================#
+    i = 0  # to point to the right figure
+    j = 0
+
+    # rearange subplots dynamically
+    cols = 2
+    cohort_start_years = np.unique(stats["start_year"].values)
+    # remove 1970 from plot
+    cohort_start_years = cohort_start_years[1:]
+
+    # 15 cohorts
+    if (len(cohort_start_years) > 10):
+        cols = 6
+
+    nrows = math.ceil(float(len(cohort_start_years)) / float(cols))
+    nrows = int(nrows)
+
+    fig3, ax3 = plt.subplots(nrows, cols, sharex=True, sharey=True, figsize=(16, 10))  # sharey=True,
+    # Create a big subplot to created axis labels that scale with figure size
+    ax_outside = fig3.add_subplot(111, frameon=False)
+    ax_outside.grid(False)
+    # hide tick and tick label of the big axes
+    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
+    ax_outside.set_xlabel('Career Age', labelpad=20, fontweight='bold')
+    ax_outside.set_ylabel(f'Cliffs Delta m-f {criterion_display}', labelpad=20, fontweight='bold')
+
+    for year in cohort_start_years:
+        cohort = stats[stats["start_year"] == year]
+        significant_effect = cohort[cohort.pvalue <= 0.05].career_age.values
+        significant_effect = [index - 1 for index in significant_effect]
+
+        ax3[i, j].plot(cohort["career_age"], cohort["cliffd_m_f"].values, '-D', markevery=significant_effect)
+
+        ax3[i, j].set_title(f"{year} ({len(significant_effect)})", fontsize=12, fontweight="bold")
+        # ax3[i,j].grid(True)
+
+        if (j < cols - 1):
+            j = j + 1
+        else:
+            j = 0
+            i = i + 1
+
+    fig3.savefig(f"./fig-7-notebook/{criterion}{ext}_gender.png", facecolor=fig3.get_facecolor(), edgecolor='none',
+                 bbox_inches='tight')
+
+    plt.tight_layout()
+    plt.show()
+    plt.close(fig3)
+
+
+# +
+mwu_cliff_d_cum_pub_first = get_cohort_effect_size(cum_cit_pub_agg_first, 'cum_num_pub_first')
+mwu_cliff_d_cum_cit_first = get_cohort_effect_size(cum_cit_pub_agg_first, 'cum_num_cit_first')
+
+mwu_cliff_d_cum_pub = get_cohort_effect_size(cum_cit_pub_agg, 'cum_num_pub')
+mwu_cliff_d_cum_cit = get_cohort_effect_size(cum_cit_pub_agg, 'cum_num_cit')
+
+# +
+plot_cohort_diffs_over_ages(mwu_cliff_d_cum_pub_first, 'mwu_cliffsd_cum_pub', 'Cumulative publications first auth', ext='_first')
+plot_cohort_diffs_over_ages(mwu_cliff_d_cum_cit_first, 'mwu_cliffsd_cum_cit', 'Cumulative citations first auth', ext='_first')
+
+# old stuff for comparison
+plot_cohort_diffs_over_ages(mwu_cliff_d_cum_pub, 'mwu_cliffsd_cum_pub', 'Cumulative publications')
+plot_cohort_diffs_over_ages(mwu_cliff_d_cum_cit, 'mwu_cliffsd_cum_cit', 'Cumulative citations')
+
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Inequality of papers
 
+# + {"hidden": true}
 def plot_ineq_papers_cohort(cohort_year, years_in_future=5, career_ages=[0,1,2,5,10], func=gini,
                            data=uncited_papers_network_first_auth):
     
@@ -156,27 +445,37 @@ def plot_ineq_papers_cohort(cohort_year, years_in_future=5, career_ages=[0,1,2,5
     plt.show()
 
 
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ### Authors with career len > 10
 
-plot_ineq_papers_cohort(2000, 5, func=percentage_zeros, data=uncited_papers_network_first_auth_10)
+# + {"hidden": true}
+# plot_ineq_papers_cohort(2000, 5, func=percentage_zeros, data=uncited_papers_network_first_auth_10)
 
-plot_ineq_papers_cohort(2000, 5, func=gini, data=uncited_papers_network_first_auth_10)
+# + {"hidden": true}
+# plot_ineq_papers_cohort(2000, 5, func=gini, data=uncited_papers_network_first_auth_10)
 
-plot_ineq_papers_cohort(2000, 5, func=gini_nonzero, data=uncited_papers_network_first_auth_10)
+# + {"hidden": true}
+# plot_ineq_papers_cohort(2000, 5, func=gini_nonzero, data=uncited_papers_network_first_auth_10)
 
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ### All authors
 
+# + {"hidden": true}
 plot_ineq_papers_cohort(2000, 5, func=percentage_zeros)
 plot_ineq_papers_cohort(2000, 5, func=gini_nonzero)
 plot_ineq_papers_cohort(2000, 5, func=gini)
 
+# + {"hidden": true}
 plot_ineq_papers_cohort(2000, 5, func=np.mean)
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Cohort Sizes
 
+# + {"hidden": true}
 cohort_sizes = counts.groupby('start_year').agg({'author': 'nunique'})
 
 
+# + {"hidden": true}
 def plot_cohort_size_over_years():
     linewidth = 2
     fontsize = 18
@@ -365,7 +664,7 @@ plot_heatmap(author_gini_early_work, publish_years, '')
 years_list = [[0,1], [3,4], [6,7]]
 plot_early_late_work(author_gini_early_work, years_list)
 
-# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
+# + {"hidden": true, "cell_type": "markdown"}
 # ##### Cumulative recognition
 
 # + {"hidden": true}
@@ -376,7 +675,7 @@ plot_early_late_work(author_gini_early_work, years_list)
 #                                letter='', 
 #                                x_start=end)
 
-# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
+# + {"hidden": true, "cell_type": "markdown"}
 # ##### Non cumulative recognition
 
 # + {"hidden": true}
@@ -386,6 +685,9 @@ plot_early_late_work(author_gini_early_work, years_list)
 #                                title=f'Publications of Career Ages {start+1}-{end}', 
 #                                letter='', 
 #                                 x_start=end)
+# + {"hidden": true}
+
+
 
 # + {"hidden": true}
 
@@ -419,7 +721,7 @@ plot_array_configs(cohort_counts_pzero, get_config2('pzero', '%0'), x_end=13)
 # + {"hidden": true}
 citations_window_stayed = citations_window[citations_window.dropped_after_10 == False]
 
-# + {"hidden": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ### Gini
 
 # + {"hidden": true}
@@ -455,7 +757,10 @@ plot_heatmap(author_gini_early_work_stayed, publish_years, '')
 plot_heatmap(author_gini_early_work_stayed, publish_years, '_cum')
 
 # + {"hidden": true}
-years_list = [[0,1], [3,4], [6,7]]
+author_gini_early_work_stayed.columns
+
+# + {"hidden": true}
+years_list = [[1,2], [3,4], [6,7]]
 plot_early_late_work(author_gini_early_work_stayed, years_list, name_ext='_stay')
 
 # + {"hidden": true}
@@ -464,7 +769,7 @@ stop here
 # + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Distributions
 
-# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
+# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
 # ### Cohort Years
 # Cumulative numbers needed.
 
@@ -484,7 +789,7 @@ cars.fit_univariate(data, discrete=True, xmin=1, xlabel='p', title='2000', bins=
 #guys from 2000 cohort with more than 300 papers
 counts[(counts['start_year'] == 2000) & (counts['career_age'] == 15) & (counts['cum_num_pub'] > 300)][['author', 'cum_num_pub']]
 
-# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
+# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
 # ### Years
 
 # + {"hidden": true}

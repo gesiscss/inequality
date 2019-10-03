@@ -51,14 +51,16 @@ LAST_START_YEAR = 2000
 
 # +
 # assert(CAREER_LENGTH >= EARLY_CAREER_LEN), "Early career len too long"
-# -
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## 1. Load data
 
+# + {"hidden": true}
 authorPublicationData = pd.read_csv('./data/author_publications_2017_asiansAsNone.txt')
 arxiv_pubid = pd.read_csv('derived-data/arxiv_pubid_2017.csv', header=None, names=['pub_id'])
 authorPublicationData.head()
 
+# + {"hidden": true}
 print(authorPublicationData.shape)
 # same as dropping author, pub_id and year
 authorPublicationData.drop_duplicates(subset=['author','pub_id'], inplace=True)
@@ -66,11 +68,14 @@ print(authorPublicationData.shape)
 authorPublicationData = authorPublicationData.loc[~authorPublicationData.pub_id.isin(arxiv_pubid['pub_id'])]
 print(authorPublicationData.shape)
 
+# + {"hidden": true}
 authorPublicationData['pub_id'].nunique()
 
+# + {"hidden": true}
 authorCitationsData = pd.read_csv('./data/citations_2017_asiansAsNone.txt')
 authorCitationsData.head()
 
+# + {"hidden": true}
 print(authorCitationsData.shape)
 authorCitationsData.drop_duplicates(inplace=True)
 print(authorCitationsData.shape)
@@ -78,27 +83,29 @@ authorCitationsData = authorCitationsData.loc[(~authorCitationsData.id1.isin(arx
                                              (~authorCitationsData.id2.isin(arxiv_pubid['pub_id']))]
 print(authorCitationsData.shape)
 
+# + {"hidden": true}
 print('Authors#      - ',authorPublicationData['author'].nunique())
 print('Years#        - ',authorPublicationData['year'].nunique())
 print('Publications# - ',authorPublicationData['pub_id'].nunique())
 
-# + {"pycharm": {"is_executing": false}}
+# + {"pycharm": {"is_executing": false}, "hidden": true}
 # venue data
 publication_venues_rank = pd.read_csv('derived-data/publication-venues-rank.csv')
-# -
 
+# + {"hidden": true}
 publication_venues_rank.head()
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## 2. Career length and dropouts
 
-# +
+# + {"hidden": true}
 groupByAuthor = authorPublicationData.groupby(['author'])
 
 groupByAuthorMinYearData = groupByAuthor['year'].min()
 groupByAuthorMaxYearData = groupByAuthor['year'].max()
 groupByAuthorCountPublicationsData = groupByAuthor['pub_id'].count()
 
-# +
+# + {"hidden": true}
 authorGroupedData = groupByAuthorMinYearData.to_frame(name='start_year')
 authorGroupedData['end_year'] = groupByAuthorMaxYearData
 authorGroupedData['total_num_pub'] = groupByAuthorCountPublicationsData
@@ -115,28 +122,33 @@ authorGroupedData = authorGroupedData.dropna(how='any')
 print("After droping na -          ", authorGroupedData.shape)
 
 authorGroupedData.head()
-# -
 
+# + {"hidden": true}
 # Adding 1 here to have career length be at least one. So 3 years career means year1, year2, year3.
 authorGroupedData["career_length"] = authorGroupedData['end_year'] - authorGroupedData['start_year'] + 1
 
+# + {"hidden": true}
 credible_authors = authorGroupedData
 
+# + {"hidden": true, "cell_type": "markdown"}
 # ### Label authors that drop out
 
+# + {"hidden": true}
 print(f"Label authors with {INACTIVE_TIME_DROPOUTS} years inacitivity in a {CAREER_LENGTH_DROPOUTS_LIST} years window as dropouts")
 
+# + {"hidden": true}
 combined_pubs = authorPublicationData.merge(credible_authors[['author', 'start_year']], on='author', how='inner')
 # TODO remove this, its the same as early career publications
 print(combined_pubs.shape)
 
 
+# + {"hidden": true}
 def list_append(lst, item):
     lst.append(item)
     return lst
 
 
-# +
+# + {"hidden": true}
 # # %%time
 # This code is potato...
 for start, end in CAREER_LENGTH_DROPOUTS_LIST:
@@ -159,40 +171,51 @@ for start, end in CAREER_LENGTH_DROPOUTS_LIST:
     credible_authors[f'avg_absence-{start}-{end}'] = credible_authors[f'avg_absence-{start}-{end}'].fillna(end-start+1)
     
     # TODO: Should i also add the start year into the calculation? Now i only have end year included
-# -
 
+# + {"hidden": true}
 credible_authors['dropped_after_10'] = credible_authors['max_absence-0-15'].apply(lambda x: False if x < 10 else True)
 
+# + {"hidden": true}
 credible_authors['max_absence-0-15'].value_counts(dropna=False)
 
+# + {"hidden": true}
 credible_authors.shape
 
+# + {"hidden": true}
 credible_authors['dropped_after_10'].value_counts()
 
+# + {"hidden": true}
 credible_authors.columns
 
+# + {"hidden": true, "cell_type": "markdown"}
 # ### Gender
 
-# +
+# + {"hidden": true}
 gender = pd.read_csv('./data/name_gender_2017_asiansAsNone_nodup.txt')
 credible_authors = credible_authors.merge(gender, left_on='author', right_on='name', how='left')
 credible_authors.drop('name', axis=1, inplace=True)
 
 credible_authors.gender.value_counts()
-# -
 
+# + {"hidden": true}
 credible_authors.gender.value_counts()
 
+# + {"hidden": true}
 gender.head()
 
+# + {"hidden": true, "cell_type": "markdown"}
 # ### Save filtered data about authors, and cleaned publications
 
+# + {"hidden": true}
 credible_authors[credible_authors.start_year >= START_YEAR].to_csv('derived-data/authors-scientific.csv', index=False, encoding='utf-8')
 credible_authors.head()
 
+# + {"hidden": true}
 authorPublicationData.to_csv('derived-data/author-publications.csv', index=False)
 
+# + {"hidden": true}
 authorPublicationData.shape
+# -
 
 # ## 3. Generate a new citation network
 
@@ -276,8 +299,13 @@ citations_year_auth = citations_year_auth.reset_index()
 
 # Doesnt contain uncited papers
 # Does not contain multiple authors per one citation
+# For every author of a paper => every citation to the paper
+# This is good for per author analysis
+# This is bad for per paper analysis
 combined = final_citation_count_from_ids.merge(credible_authors[['author', 'start_year']], on='author', how='inner')
 # TODO Is this 'inner' here good?
+
+combined[combined.pub_id == '001c8744-73c4-4b04-9364-22d31a10dbf1']
 
 early_career_publications = authorPublicationData.merge(credible_authors[['author', 'start_year']], on='author', how='left')
 
@@ -317,10 +345,12 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     credible_authors = credible_authors.merge(author_order_early, on='author', how='left')
     credible_authors[f'ec_first_auth_{EARLY_CAREER}'] = credible_authors[f'ec_first_auth_{EARLY_CAREER}'].fillna(0)
 
+author_order.head()
 
-
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Team size
 
+# + {"hidden": true}
 for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     early_career_publications_filtered = early_career_publications[(
         early_career_publications.year < early_career_publications.start_year + EARLY_CAREER)]
@@ -335,41 +365,80 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     credible_authors = credible_authors.merge(team_size_median, on='author', how='left')
     credible_authors = credible_authors.merge(team_size_mean, on='author', how='left')
 
+# + {"hidden": true}
 early_career_publications_filtered.shape
 
+# + {"hidden": true}
 team_size_median.shape
 
+# + {"hidden": true}
 credible_authors.columns
 
+# + {"hidden": true, "cell_type": "markdown"}
 # #### Per Year
 
-# +
+# + {"hidden": true}
 # this has no effect, arxiv removed beforehand
 # print(authorPublicationData.shape)
 # print(authorPublicationData.loc[~authorPublicationData.pub_id.isin(arxiv_pubid['pub_id'])].shape)
-# -
 
+# + {"hidden": true}
 team_size = authorPublicationData.groupby(['year', 'pub_id']).size().reset_index(name='team_size')
 team_size.head()
 
-team_size_year = team_size.groupby('year').agg({'team_size': 'mean'}).reset_index()
-team_size_year.head()
+# + {"hidden": true}
+team_size_year = team_size.groupby('year').agg({'team_size': 'median'}).reset_index()
 
+# + {"hidden": true}
+team_size_year = team_size_year[team_size_year['year'].between(1970, 2014)]
+
+# + {"hidden": true}
 import matplotlib.pyplot as plt
-plt.plot(team_size_year['year'], team_size_year['team_size'])
-plt.yscale('log')
-plt.savefig('./fig/average_team_size_across_years.png')
+#plt.plot(team_size_year['year'], team_size_year['team_size'])
+#plt.yscale('log')
+#plt.savefig('./fig/average_team_size_across_years.png')
 
+linewidth = 2
+fontsize = 18
+fig = plt.figure(figsize=(4, 4))
+ax = fig.add_subplot(111)
+ax.plot(team_size_year['year'], team_size_year['team_size'], linewidth=linewidth, color='black')
+ax.xaxis.set_ticks_position('both')
+ax.yaxis.set_ticks_position('both')
+#ax.set_yscale('log')
+ax.set_xlabel('Year', fontsize=fontsize)
+ax.set_ylabel('Median Team Size', fontsize=fontsize)
+#ax.set_title('', fontsize=fontsize)
+ax.set_xticks([1970, 1990, 2010])
+ax.set_yticks([1, 2, 3])
+ax.tick_params(axis="x", which='major', direction="in", width=linewidth, size=4*linewidth, labelsize=fontsize, pad=7)
+ax.tick_params(axis="x", which='minor', direction="in", width=linewidth, size=2*linewidth, labelsize=fontsize, pad=7)
+ax.tick_params(axis="y", which='major', direction="in", width=linewidth, size=4*linewidth, labelsize=fontsize)
+ax.tick_params(axis="y", which='minor', direction="in", width=linewidth, size=2*linewidth, labelsize=fontsize)
+ax.spines['left'].set_linewidth(linewidth)
+ax.spines['right'].set_linewidth(linewidth)
+ax.spines['bottom'].set_linewidth(linewidth)
+ax.spines['top'].set_linewidth(linewidth)
+#ax.legend(fontsize=fontsize)
+plt.gcf().text(0., 0.9, 'C', fontsize=fontsize*2)
+plt.subplots_adjust(left=0.25, right=0.95, bottom=0.2, top=0.9)
+fig.savefig('./fig/team_size.pdf')
 
+# + {"hidden": true}
+team_size_year.to_csv('derived-data/team_size_median_per_year.csv', index=None)
 
-team_size_year.to_csv('derived-data/team_size_avg_per_year.csv', index=None)
-
+# + {"hidden": true, "cell_type": "markdown"}
 # Are all authors included here? Also those without gender?
+# -
 
 # ### Rolling citations
 
+# +
 author_year_numPub = authorPublicationData.groupby(['author', 'year'])['pub_id'].count().reset_index()
 author_year_numPub = author_year_numPub.rename(columns={'pub_id':'num_pub'})
+
+author_year_numPub_first = author_order.groupby(['author', 'year'])['pub_id'].count().reset_index()
+author_year_numPub_first = author_year_numPub_first.rename(columns={'pub_id':'num_pub_first'})
 
 # + {"pycharm": {"is_executing": false}}
 all_years = credible_authors.start_year.unique()
@@ -387,6 +456,15 @@ counts = counts.merge(credible_authors[['author', 'start_year', 'end_year', 'gen
 counts['career_age'] = counts['year'] - counts['start_year'] + 1
 counts['year'] = counts['year'].astype('int32')
 
+# +
+combined_first = combined.merge(author_order[['author', 'pub_id']], how='inner')
+
+citations_year_auth_first = combined_first.groupby(['author', 'year_cit'])['id1'].count()
+# -
+
+citations_year_auth_first = citations_year_auth_first.reset_index()
+citations_year_auth_first = citations_year_auth_first.rename(columns={'id1':'num_cit_first', 'year_cit': 'year'})
+
 #citations window
 WINDOW_SIZE = 3
 df_list = []
@@ -400,10 +478,12 @@ for year in start_years:
         df_list.append(df_window)
 df_cit_3_window = pd.concat(df_list).sort_values(by=['author', 'year'])
 
+# +
 counts = counts.merge(df_cit_3_window, on=['author', 'year'], how='left')
 counts['cit_3'] = counts['cit_3'].fillna(0)
 
 citations_year_auth.rename(columns={'year_cit':'year', 'cit_count':'num_cit'}, inplace=True)
+# -
 
 # merge in publications
 counts = counts.merge(author_year_numPub, on=['author', 'year'], how='left')
@@ -412,8 +492,18 @@ counts['num_pub'] = counts['num_pub'].fillna(0)
 counts = counts.merge(citations_year_auth, on=['author', 'year'], how='left')
 counts['num_cit'] = counts['num_cit'].fillna(0)
 
+# merge in publications
+counts = counts.merge(author_year_numPub_first, on=['author', 'year'], how='left')
+counts['num_pub_first'] = counts['num_pub_first'].fillna(0)
+# merge in citations
+counts = counts.merge(citations_year_auth_first, on=['author', 'year'], how='left')
+counts['num_cit_first'] = counts['num_cit_first'].fillna(0)
+
 counts = calculate.calculate_cumulative_for_authors(counts, 'num_cit')
 counts = calculate.calculate_cumulative_for_authors(counts, 'num_pub')
+
+counts = calculate.calculate_cumulative_for_authors(counts, 'num_cit_first')
+counts = calculate.calculate_cumulative_for_authors(counts, 'num_pub_first')
 
 counts['career_duration'] = counts['end_year']-counts['start_year'] + 1
 
@@ -423,6 +513,10 @@ counts['career_duration'] = counts['end_year']-counts['start_year'] + 1
 counts['win_num_pub'] = counts.groupby('author')['num_pub'].transform(lambda x: x.rolling(3, min_periods=3).sum().shift(-2))
 
 counts.columns
+
+counts.to_csv(f'derived-data/citations_window_ONLY_first.csv', index=None)
+
+counts.head()
 
 # +
 # # %%time
@@ -758,4 +852,23 @@ credible_authors[credible_authors.start_year >= START_YEAR].to_csv('derived-data
 
 credible_authors.columns
 
+combined.columns
 
+combined[(combined.start_year == 1994)]['author'].nunique()
+
+auths_1994 = combined[(combined.start_year == 1994) & 
+        (combined.year_cit == 1994)]['author'].unique()
+
+len(auths_1994)
+
+combined.shape
+
+combined[(combined.start_year == 1994) & 
+        (combined.year_cit == 1994)]['pub_id'].nunique()
+
+joseph_1999 = combined[(combined.author == 'joseph mitola iii') &
+         (combined.year_pub == 1999)]
+
+authorPublicationData[authorPublicationData.pub_id == 'a43af2b6-93e5-480f-9678-8394483315a8']
+
+joseph_1999[joseph_1999.year_cit == 2010].groupby('pub_id').agg({'id1': 'count'})

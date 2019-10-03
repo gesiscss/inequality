@@ -14,6 +14,8 @@
 # ---
 
 # + {"pycharm": {"is_executing": false}}
+# TODO: add \addlinespace to the latex output files at lines 4,7,10,11 :)
+# TODO: one of the horizontal lines in latex is wrong, at line -4 instead of minus 3.
 import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
@@ -311,17 +313,18 @@ def scale_columns(X):
         standardized_cols = []
     return pd.DataFrame(standardized_cols, index=X.index, columns=X.columns)
 
-def prepare_data(credible_authors, cols_std, categorical_cols, REMOVE_NONE_AUTHORS):
+def prepare_data(credible_authors, cols_std, categorical_cols, REMOVE_NONE_AUTHORS, aggr=False):
     X = credible_authors[credible_authors.start_year.isin(COHORT_START_YEARS)].copy()
     
     # Either scale OR INCLUDE start_year as control Var
     # scale dependent variables per year --> WE SHOULD ALSO SCALE OUTCOME VAR
     
-#     for year in COHORT_START_YEARS:
-#         X.loc[X.start_year == year, cols_std] = scale_columns(X.loc[X.start_year == year, cols_std])
-
+    if not aggr:
+        for year in COHORT_START_YEARS:
+            X.loc[X.start_year == year, cols_std] = scale_columns(X.loc[X.start_year == year, cols_std])
+    else:
 #     scale over whole dataset
-#     X[cols_std] = scale_columns(X[cols_std])
+        X[cols_std] = scale_columns(X[cols_std])
     
     # make dummies of categorical cols
     if len(categorical_cols)>0:
@@ -335,7 +338,7 @@ def prepare_data(credible_authors, cols_std, categorical_cols, REMOVE_NONE_AUTHO
     return X
 
 def run_elastic_net_aggr(credible_authors, cols_std, categorical_cols, INCLUDE_YEAR, REMOVE_NONE_AUTHORS, dep_var):
-    X = prepare_data(credible_authors, cols_std, categorical_cols, REMOVE_NONE_AUTHORS)
+    X = prepare_data(credible_authors, cols_std, categorical_cols, REMOVE_NONE_AUTHORS, aggr=True)
     Y = X[dep_var].copy()
     X = X.drop(dep_var, axis=1)
 #     Y = credible_authors[dep_var]
@@ -357,9 +360,7 @@ def run_elastic_net_aggr(credible_authors, cols_std, categorical_cols, INCLUDE_Y
 def run_elastic_net_cohort(credible_authors, cols_std, categorical_cols, REMOVE_NONE_AUTHORS, dep_var):
     table_list = []
     X = prepare_data(credible_authors, cols_std, categorical_cols, REMOVE_NONE_AUTHORS)
-    # REMOVE AFTER TEST!!!!! TODO
-    X['ec_prod_4'] = X['early_career_prod_3']*-1 + np.random.normal(0, .1, X.shape[0])
-    print(np.corrcoef(X['ec_prod_4'], X['early_career_prod_3']))
+    # TODO This means we are scaling data over whole dataset even for cohort analysis!
     for year in COHORT_START_YEARS:
         X_year = X[X.start_year == year]
 #         y_year = credible_authors[credible_authors.start_year == year][dep_var]
@@ -464,7 +465,7 @@ def results_to_latex(results, name):
     ltx_file.close()
 
 
-# + {"code_folding": [0, 10, 20, 30, 40, 50, 62, 70, 78, 116]}
+# + {"code_folding": [0, 10, 20, 30, 40, 50, 62, 70, 116]}
 def get_baseline_vars():
     INCLUDE_PROD = 0
     INCLUDE_SOCIAL = 0
@@ -607,28 +608,34 @@ res_cohort_base_hind = elastic_cohort(credible_authors, get_baseline_vars, EARLY
 
 # + {"hidden": true}
 # res_cohort_base_hind
-# -
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Human Capital Model
 
+# + {"hidden": true}
 res_cohort_humcap_hind = elastic_cohort(credible_authors, get_human_cap_vars, EARLY_CAREER, RECOGNITION_CUT,
                                         dv_hindex_incr)
 # res_cohort_humcap_cita = elastic_cohort(credible_authors, get_human_cap_vars, EARLY_CAREER, RECOGNITION_CUT,
 #                                         dv_citations_incr)
 # res_cohort_humcap_drop = elastic_cohort(get_human_cap_vars, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
 
+# + {"hidden": true}
 #no scale
 res_cohort_humcap_hind
 
+# + {"hidden": true}
 #robust
 res_cohort_humcap_hind
 
+# + {"hidden": true}
 #no scale
-res_cohort_humcap_hind.apply(lambda x: float(x['ec_prod_3'].split('(')[0])+float(x['ec_prod_4'].split('(')[0]), axis=1)
+# res_cohort_humcap_hind.apply(lambda x: float(x['ec_prod_3'].split('(')[0])+float(x['ec_prod_4'].split('(')[0]), axis=1)
 
+# + {"hidden": true}
 #robust
 res_cohort_humcap_hind.apply(lambda x: float(x['ec_prod_3'].split('(')[0])+float(x['ec_prod_4'].split('(')[0]), axis=1)
 
+# + {"hidden": true}
 r2_old_col = res_cohort_humcap_hind.r2.copy()
 
 # + {"heading_collapsed": true, "cell_type": "markdown"}
@@ -681,6 +688,8 @@ res_cohort_full_drop = elastic_cohort(credible_authors, get_full_vars, EARLY_CAR
 res_cohort_full_drop
 
 get_report_from_table(res_cohort_full_drop)
+
+get_report_from_table(res_cohort_full_hind)
 
 # + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Stayed
@@ -745,21 +754,22 @@ plot_metric_over_cohorts(res_cohort_full_cita, 'r2', 'R squared', 'Citation incr
 # ## Aggregated Elastic Net Models
 # We test the effect of different groups of features (human capital, social capital and gender) on success/dropout
 
-elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
+h_ind_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
+results_to_latex(h_ind_agg_all, 'agg_hindex')
+h_ind_agg_all
 
-elastic_agg_all(credible_authors_stayed, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
+cit_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
+results_to_latex(cit_agg_all, 'agg_citations')
+cit_agg_all
 
-elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
-
-elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
-
-elastic_agg_all(credible_authors_stayed, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
+drop_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
+results_to_latex(drop_agg_all, 'agg_dropout')
+drop_agg_all
 
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Run different configs of the elastic model
 
-# + {"hidden": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Test train split 80-20
 
 # + {"code_folding": [], "hidden": true}
@@ -842,7 +852,7 @@ cols_all, cols_std, categorical_cols = make_cols_lists(INCLUDE_PROD, INCLUDE_SOC
                                                        INCLUDE_QUALITY, INCLUDE_GENDER, REMOVE_NONE_AUTHORS, EARLY_CAREER, RECOGNITION_CUT)
 run_elastic_predictions_test_train(cols_all, cols_std, categorical_cols, REMOVE_NONE_AUTHORS, EARLY_CAREER)
 
-# + {"hidden": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Test predictive power over different number of observed years
 
 # + {"hidden": true}
@@ -898,7 +908,7 @@ plt.gcf().text(0., 0.9, 'D', fontsize=fontsize*2)
 plt.subplots_adjust(left=0.25, right=0.95, bottom=0.2, top=0.9)
 plt.savefig('./fig/pred_r2_obs_years.pdf')
 
-# + {"hidden": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Test predictive power over different number of years being predicted
 
 # + {"hidden": true}
@@ -950,7 +960,7 @@ plt.savefig('./fig/pred_r2_per_years.pdf')
 # + {"hidden": true}
 stop
 
-# + {"hidden": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### predictor diffs
 
 # + {"hidden": true}
@@ -965,7 +975,7 @@ print("Average difference in r squared", sum(citations['r2']-h_index['r2'])/len(
 plt.legend()
 plt.show()
 
-# + {"hidden": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### gender diffs
 
 # + {"hidden": true}
@@ -981,7 +991,7 @@ plt.plot(res_cohort_full_hind.index ,np.zeros(len(res_cohort_full_hind)))
 plt.legend()
 plt.show()
 
-# + {"hidden": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### cohort size diffs
 
 # + {"hidden": true}
@@ -999,7 +1009,7 @@ ax2.set_ylabel('Cohort size', color='C3')
 ax2.legend(loc=4)
 plt.show()
 
-# + {"hidden": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### cheating diffs
 
 # + {"hidden": true}
@@ -1028,7 +1038,7 @@ plt.title("Difference between quality(15y) and recognition(3y)")
 plt.legend()
 plt.show()
 
-# + {"hidden": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### scaler diffs
 
 # + {"hidden": true}
@@ -1055,7 +1065,7 @@ plt.show()
 # + {"hidden": true}
 # feature_table3.transpose()
 
-# + {"hidden": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Best feature selection
 
 # + {"hidden": true}
@@ -1249,53 +1259,44 @@ for param in params_rfecv:
 
 # + {"hidden": true}
 selected_f
+# -
 
-# + {"hidden": true, "cell_type": "markdown"}
 # ### Null experiment
 
-# + {"hidden": true}
 citations_per_year = pd.read_csv('derived-data/paper-citation-count.csv', header=None, names=['pub_id', 'cit_count'])
 
-# + {"hidden": true}
 publications = pd.read_csv('derived-data/author-publications.csv')
 
-# + {"hidden": true}
+# +
 # publications.sort_values(by='author').head()
+# -
 
-# + {"hidden": true}
 # remove authors by career_len, and add start year
 publications = publications.merge(credible_authors[['author', 'start_year']], on='author')
 
-# + {"hidden": true}
 publications = publications[publications.year <= publications.year + MAX_CAREER_LEN]
 
-# + {"hidden": true}
+# +
 # citations_per_year.head()
+# -
 
-# + {"hidden": true}
 publications['pub_id'] = shuffle(publications['pub_id']).reset_index(drop=True)
 
-# + {"hidden": true}
+# +
 # publications.sort_values(by='author').head()
+# -
 
-# + {"hidden": true}
 publications = publications.merge(citations_per_year, on='pub_id', how='left')
 publications = publications.fillna(0)
 
-# + {"hidden": true}
 publications.sort_values(by='author').head(20)
 
-# + {"hidden": true}
 credible_authors[credible_authors.author == "a min tjoa"]['succ_after_15y']
 
-# + {"hidden": true}
 credible_authors.set_index('author', inplace=True)
 
-# + {"hidden": true}
 credible_authors['succ_shuffled'] = publications.groupby('author')['cit_count'].sum()
 
-# + {"hidden": true}
 credible_authors[['succ_shuffled', 'succ_after_15y']].head()
 
-# + {"hidden": true}
 credible_authors.columns
