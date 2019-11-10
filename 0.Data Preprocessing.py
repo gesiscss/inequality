@@ -16,6 +16,7 @@
 # + {"pycharm": {"is_executing": false}}
 import pandas as pd
 import numpy as np
+
 import calculate
 from calculate import gini
 
@@ -23,13 +24,9 @@ from calculate import gini
 # Specify career len to export file for
 # CAREER_LENGTH = 15
 # Specify how long is the early career. Impacts which papers we take into account for early productivity and quality
-# EARLY_CAREER_LEN = 3
-# EARLY_CAREER_LEN_LIST = [1, 2, 3, 4, 5]
+EARLY_CAREER_LEN = 3
 EARLY_CAREER_LEN_LIST = [3,5,7,9,11,12]
 # For early career work, when do we stop counting citations. Impacts recognition
-# RECOGNITION_CUT_OFF = 5
-# RECOGNITION_CUT_OFF_LIST = [3, 4, 5, 6, 7, 8, 9]
-# RECOGNITION_CUT_OFF_LIST = [3, 5]
 RECOGNITION_CUT_OFF_LIST = [3,5,7,9,11,12]
 # Success after 15 years. Impacts when we stop counting citations
 SUCCESS_CUTOFF = 15
@@ -45,19 +42,25 @@ INACTIVE_TIME_DROPOUTS = 10
 # Specify the first and last year we consider in our analysis
 START_YEAR = 1970
 LAST_START_YEAR = 2000
-
-# +
-# assert(INACTIVE_TIME_DROPOUTS < CAREER_LENGTH_DROPOUTS), "Time observed for dropouts has to be smaller than the whole window!"
-
-# +
-# assert(CAREER_LENGTH >= EARLY_CAREER_LEN), "Early career len too long"
 # -
 
 # ## 1. Load data
 
+# +
+# cheat load
+# credible_authors = pd.read_csv('derived-data/authors-scientific-extended.csv')
+# -
+
+# read csv
 authorPublicationData = pd.read_csv('./data/author_publications_2017_asiansAsNone.txt')
 arxiv_pubid = pd.read_csv('derived-data/arxiv_pubid_2017.csv', header=None, names=['pub_id'])
+
+
+
+# +
+
 authorPublicationData.head()
+# -
 
 print(authorPublicationData.shape)
 # same as dropping author, pub_id and year
@@ -654,11 +657,13 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
 
 credible_authors.columns
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Final success
 
+# + {"hidden": true}
 combined_succ_after_15y = combined[combined.year_cit < combined.start_year + SUCCESS_CUTOFF]
 
-# +
+# + {"hidden": true}
 succ_after_15y = combined_succ_after_15y.groupby('author')['id1'].count()
 
 succ_after_15y = succ_after_15y.rename('succ_after_15y')
@@ -667,10 +672,10 @@ credible_authors = credible_authors.merge(succ_after_15y, on='author', how='left
 credible_authors['succ_after_15y'] = credible_authors['succ_after_15y'].fillna(0)
 
 
-# -
-
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### H index
 
+# + {"hidden": true}
 def h_index(citations):
     if len(citations) == 0: return 0
     if len(citations) == 1: return 1
@@ -683,6 +688,7 @@ def h_index(citations):
     return h_ind
 
 
+# + {"hidden": true}
 for param in [*EARLY_CAREER_LEN_LIST, SUCCESS_CUTOFF]:
 
     combined_h_index = combined[combined.year_cit < combined.start_year + param]
@@ -698,10 +704,10 @@ for param in [*EARLY_CAREER_LEN_LIST, SUCCESS_CUTOFF]:
     credible_authors = credible_authors.merge(combined_h_index.reset_index(), on='author', how='left')
     credible_authors[f'h-index_{param}'] = credible_authors[f'h-index_{param}'].fillna(0)
 
-# +
+# + {"hidden": true}
 # TODO: test h-index
-# -
 
+# + {"hidden": true}
 # # %%time
 for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     early_career_publications_reduced = early_career_publications[early_career_publications.year <= 
@@ -710,6 +716,8 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     early_career_publications_ = early_career_publications_.rename({'pub_id':f'early_career_prod_{EARLY_CAREER}'}, axis='columns')
     credible_authors = credible_authors.merge(early_career_publications_, on='author', how='left')
 
+
+# -
 
 # ### Early Coauthor max h-index
 
@@ -786,6 +794,23 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
 
 credible_authors.columns
 
+# +
+# for year in EARLY_CAREER_LEN_LIST[1:]:
+#     credible_authors[f'citation_increase_{year}_{EARLY_CAREER_LEN}'] = credible_authors[
+#         f'early_career_recognition_EC{year}_RC{year}'] - credible_authors[f'early_career_recognition_EC{EARLY_CAREER_LEN}_RC{EARLY_CAREER_LEN}']
+#     credible_authors[f'h_index_increase_{year}_{EARLY_CAREER_LEN}'] = credible_authors[f'h-index_{year}'] - credible_authors[f'h-index_{EARLY_CAREER_LEN}']
+# -
+
+EARLY_CAREER_LEN_LIST
+
+for year in EARLY_CAREER_LEN_LIST:
+    credible_authors[f'citation_increase_15_{year}'] = credible_authors['succ_after_15y'] - credible_authors[
+        f'early_career_recognition_EC{year}_RC{year}']
+    credible_authors[f'h_index_increase_{year}_{EARLY_CAREER}'] = credible_authors[
+        f'h-index_{year}'] - credible_authors[f'h-index_{EARLY_CAREER}']
+    credible_authors[f'h_index_increase_15_{EARLY_CAREER}'] = credible_authors[
+        f'h-index_15'] - credible_authors[f'h-index_{EARLY_CAREER}']
+
 
 # ### Early Coauthor max citations
 
@@ -834,25 +859,10 @@ credible_authors[credible_authors.start_year >= START_YEAR].to_csv('derived-data
 #                     index=False, encoding='utf-8')
 # -
 
+drop_list_cols(['citation_increase_5_3', 'h_index_increase_5_3',
+       'citation_increase_7_3', 'h_index_increase_7_3',
+       'citation_increase_9_3', 'h_index_increase_9_3',
+       'citation_increase_11_3', 'h_index_increase_11_3',
+       'citation_increase_12_3', 'h_index_increase_12_3'])
+
 credible_authors.columns
-
-combined.columns
-
-combined[(combined.start_year == 1994)]['author'].nunique()
-
-auths_1994 = combined[(combined.start_year == 1994) & 
-        (combined.year_cit == 1994)]['author'].unique()
-
-len(auths_1994)
-
-combined.shape
-
-combined[(combined.start_year == 1994) & 
-        (combined.year_cit == 1994)]['pub_id'].nunique()
-
-joseph_1999 = combined[(combined.author == 'joseph mitola iii') &
-         (combined.year_pub == 1999)]
-
-authorPublicationData[authorPublicationData.pub_id == 'a43af2b6-93e5-480f-9678-8394483315a8']
-
-joseph_1999[joseph_1999.year_cit == 2010].groupby('pub_id').agg({'id1': 'count'})
