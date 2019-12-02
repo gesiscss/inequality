@@ -5,3 +5,5 @@ __pycache__/
 derived-data-backup/
 derived-data/
 fig*
+tests/.pytest_cache
+

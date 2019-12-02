@@ -8,7 +8,7 @@ import math
 from numpy import std, mean, sqrt
 
 
-#correct if the population S.D. is expected to be equal for the two groups.
+# correct if the population S.D. is expected to be equal for the two groups.
 
 def mann_whitney_effect_size(a, b, alternative='two-sided', effect_formula='r'):
     n1 = len(a)
@@ -143,4 +143,4 @@ def calculate_cumulative_for_authors(data, criterion):
 
 
 
-    
+
