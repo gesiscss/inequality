@@ -18,18 +18,19 @@ import pandas as pd
 import numpy as np
 
 import calculate
-from calculate import gini
+from calculate import gini, h_index
 
 # +
 # Specify how long is the early career. Impacts which papers we take into account for early productivity and quality
 EARLY_CAREER_LEN = 3
-EARLY_CAREER_LEN_LIST = [3,5,7,9,11,12]
+EARLY_CAREER_LEN_LIST = [3, 5, 7, 9, 11, 12]
 # For early career work, when do we stop counting citations. Impacts recognition
-RECOGNITION_CUT_OFF_LIST = [3,5,7,9,11,12]
+RECOGNITION_CUT_OFF_LIST = [3, 5, 7, 9, 11, 12]
 # Success after 15 years. Impacts when we stop counting citations
 SUCCESS_CUTOFF = 15
 # Length of observed career for dropouts
 # (1-3), middle career (4-9), late career (10-15)
+
 # TODO: for multiple dropout intervals code does not work!!!
 # CAREER_LENGTH_DROPOUTS_LIST = [ (0, 15), (0, 3), (4, 9), (10, 15)] #,
 CAREER_LENGTH_DROPOUTS_LIST = [(0, 15)]
@@ -47,6 +48,7 @@ def get_start_years(START_YEAR, LAST_START_YEAR):
     all_years = credible_authors.start_year.unique()
     start_years = [year for year in all_years if START_YEAR <= year <= LAST_START_YEAR]
     start_years = sorted(start_years)
+    return start_years
 
 
 # ## 1. Load data
@@ -69,7 +71,7 @@ publication_venues_rank = pd.read_csv('derived-data/publication-venues-rank.csv'
 # +
 # remove duplicates and remove arxiv
 print(authorPublicationData.shape)
-authorPublicationData.drop_duplicates(subset=['author','pub_id'], inplace=True)
+authorPublicationData.drop_duplicates(subset=['author', 'pub_id'], inplace=True)
 print(authorPublicationData.shape)
 authorPublicationData = authorPublicationData.loc[~authorPublicationData.pub_id.isin(arxiv_pubid['pub_id'])]
 print(authorPublicationData.shape)
@@ -82,9 +84,9 @@ authorCitationsData = authorCitationsData.loc[(~authorCitationsData.id2.isin(arx
 print(authorCitationsData.shape)
 # -
 
-print('Authors#      - ',authorPublicationData['author'].nunique())
-print('Years#        - ',authorPublicationData['year'].nunique())
-print('Publications# - ',authorPublicationData['pub_id'].nunique())
+print('Authors#      - ', authorPublicationData['author'].nunique())
+print('Years#        - ', authorPublicationData['year'].nunique())
+print('Publications# - ', authorPublicationData['pub_id'].nunique())
 
 # ## 2. Career length and gender
 
@@ -131,10 +133,12 @@ gender.head()
 # ### Save filtered data about authors, and cleaned publications
 
 def filter_cred_authors(START_YEAR, LAST_START_YEAR):
-    return credible_authors[(credible_authors.start_year >= START_YEAR) & (credible_authors.start_year <= LAST_START_YEAR)]
+    return credible_authors[
+        (credible_authors.start_year >= START_YEAR) & (credible_authors.start_year <= LAST_START_YEAR)]
 
 
-filter_cred_authors(START_YEAR, LAST_START_YEAR).to_csv('derived-data/authors-scientific.csv', index=False, encoding='utf-8')
+filter_cred_authors(START_YEAR, LAST_START_YEAR).to_csv('derived-data/authors-scientific.csv', index=False,
+                                                        encoding='utf-8')
 credible_authors.head()
 
 authorPublicationData.to_csv('derived-data/author-publications.csv', index=False)
@@ -150,9 +154,9 @@ authorPublicationData.shape
 # Contains multiple authors per paper
 # This is good for per author analysis
 # This is bad for per paper analysis
-publications_citations_no_uncited = authorPublicationData.merge(authorCitationsData, left_on='pub_id', 
-                                                            right_on='id2', how='inner', suffixes=('_pub', '_cit'))
-publications_citations_no_uncited = publications_citations_no_uncited.merge(credible_authors[['author', 'start_year']], 
+publications_citations_no_uncited = authorPublicationData.merge(authorCitationsData, left_on='pub_id',
+                                                                right_on='id2', how='inner', suffixes=('_pub', '_cit'))
+publications_citations_no_uncited = publications_citations_no_uncited.merge(credible_authors[['author', 'start_year']],
                                                                             on='author', how='inner')
 
 # remove cited before published
@@ -169,7 +173,8 @@ paper_total_citations = paper_paper_citations.groupby('id2')['id1'].count()
 
 # Contains uncited papers
 # Good for early career publication related analysis
-publications_start_year = authorPublicationData.merge(credible_authors[['author', 'start_year']], on='author', how='inner')
+publications_start_year = authorPublicationData.merge(credible_authors[['author', 'start_year']], on='author',
+                                                      how='inner')
 
 # ### DF3 - Author order in publications
 
@@ -177,8 +182,9 @@ publications_start_year = authorPublicationData.merge(credible_authors[['author'
 publications_first_author = pd.read_csv('derived-data/publication_authors_order_2017.csv')
 
 # + {"pycharm": {"name": "#%%\n"}}
-publications_first_author = publications_first_author.merge(credible_authors[['author', 'start_year']], left_on='first_author', 
-                                  right_on='author', how='left')
+publications_first_author = publications_first_author.merge(credible_authors[['author', 'start_year']],
+                                                            left_on='first_author',
+                                                            right_on='author', how='left')
 publications_first_author = publications_first_author.drop('first_author', axis='columns')
 # -
 
@@ -187,106 +193,103 @@ publications_first_author = publications_first_author.drop('first_author', axis=
 # number of citations an author receives per year
 author_yearly_citations = publications_citations_no_uncited.groupby(['author', 'year_cit'])['id1'].count()
 author_yearly_citations = author_yearly_citations.reset_index()
-author_yearly_citations = author_yearly_citations.rename(columns={'id1':'num_cit', 'year_cit':'year'})
+author_yearly_citations = author_yearly_citations.rename(columns={'id1': 'num_cit', 'year_cit': 'year'})
 author_yearly_citations[['author', 'year', 'num_cit']].to_csv('derived-data/authors-perYear-citations.csv', index=False)
 
-
 author_yearly_publications = authorPublicationData.groupby(['author', 'year'])['pub_id'].count().reset_index()
-author_yearly_publications = author_yearly_publications.rename(columns={'pub_id':'num_pub'})
+author_yearly_publications = author_yearly_publications.rename(columns={'pub_id': 'num_pub'})
 
 # ## Publication and citation based analysis - DF1
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### 1: Early quality
 
-# + {"pycharm": {"name": "#%%\n"}}
+# + {"pycharm": {"name": "#%%\n"}, "hidden": true}
 for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     combined_early_quality = publications_citations_no_uncited[
         (publications_citations_no_uncited.year_pub < publications_citations_no_uncited.start_year + EARLY_CAREER) &
         (publications_citations_no_uncited.year_cit < publications_citations_no_uncited.start_year + SUCCESS_CUTOFF)]
-    
-    author_order_early = publications_first_author[(publications_first_author.year < publications_first_author.start_year + EARLY_CAREER)]
-    early_career_quality_first = combined_early_quality.loc[combined_early_quality['pub_id'].isin(author_order_early['pub_id'])]
-    
+
+    author_order_early = publications_first_author[
+        (publications_first_author.year < publications_first_author.start_year + EARLY_CAREER)]
+    early_career_quality_first = combined_early_quality.loc[
+        combined_early_quality['pub_id'].isin(author_order_early['pub_id'])]
+
     early_career_quality = combined_early_quality.groupby('author')['id1'].count()
     early_career_quality_first = early_career_quality_first.groupby('author')['id1'].count()
 
     early_career_quality = early_career_quality.rename(f'early_career_qual_{EARLY_CAREER}').reset_index()
-    early_career_quality_first = early_career_quality_first.rename(f'early_career_qual_first_{EARLY_CAREER}').reset_index()
-    
+    early_career_quality_first = early_career_quality_first.rename(
+        f'early_career_qual_first_{EARLY_CAREER}').reset_index()
+
     credible_authors = credible_authors.merge(early_career_quality, on='author', how='left')
     credible_authors = credible_authors.merge(early_career_quality_first, on='author', how='left')
-    
-    credible_authors[f'early_career_qual_{EARLY_CAREER}'] = credible_authors[f'early_career_qual_{EARLY_CAREER}'].fillna(0)
+
+    credible_authors[f'early_career_qual_{EARLY_CAREER}'] = credible_authors[
+        f'early_career_qual_{EARLY_CAREER}'].fillna(0)
     credible_authors[f'early_career_qual_first_{EARLY_CAREER}'] = credible_authors[
         f'early_career_qual_first_{EARLY_CAREER}'].fillna(0)
-# -
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### 2: Early recognition
 
-# + {"pycharm": {"name": "#%%\n"}}
+# + {"pycharm": {"name": "#%%\n"}, "hidden": true}
 for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     for RECOGNITION_CUT in RECOGNITION_CUT_OFF_LIST:
         if RECOGNITION_CUT != EARLY_CAREER: continue
         early_career_recognition = publications_citations_no_uncited[
             (publications_citations_no_uncited.year_pub < publications_citations_no_uncited.start_year + EARLY_CAREER) &
-            (publications_citations_no_uncited.year_cit < publications_citations_no_uncited.start_year + RECOGNITION_CUT)]
+            (
+                        publications_citations_no_uncited.year_cit < publications_citations_no_uncited.start_year + RECOGNITION_CUT)]
         early_career_recognition = early_career_recognition.groupby('author')['id1'].count()
         col_name = f'early_career_recognition_EC{EARLY_CAREER}_RC{RECOGNITION_CUT}'
         early_career_recognition = early_career_recognition.rename(col_name)
         early_career_recognition = early_career_recognition.reset_index()
         credible_authors = credible_authors.merge(early_career_recognition, on='author', how='left')
         credible_authors[col_name] = credible_authors[col_name].fillna(0)
-# -
-
-# ### 3: Final success
-
-# +
-succ_after_15y = publications_citations_no_uncited[
-    publications_citations_no_uncited.year_cit < publications_citations_no_uncited.start_year + SUCCESS_CUTOFF]
-succ_after_15y = succ_after_15y.groupby('author')['id1'].count()
-
-succ_after_15y = succ_after_15y.rename('succ_after_15y')
-succ_after_15y = succ_after_15y.reset_index()
-credible_authors = credible_authors.merge(succ_after_15y, on='author', how='left')
-credible_authors['succ_after_15y'] = credible_authors['succ_after_15y'].fillna(0)
 
 
 # -
 
 # ## Publication based analysis - DF2
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### 1: Label authors that drop out
 
-# + {"hidden": true}
 def list_append(lst, item):
     lst.append(item)
     return lst
+
+
 def append_new_only(lst, item):
     if item not in lst:
         lst.append(item)
     return lst
 
 
-# + {"pycharm": {"name": "#%%\n"}, "hidden": true}
+# + {"pycharm": {"name": "#%%\n"}}
 def get_author_avg_max_absence(CAREER_LENGTH_DROPOUTS_LIST, INACTIVE_TIME_DROPOUTS, credible_authors):
     for start, end in CAREER_LENGTH_DROPOUTS_LIST:
-        pubs_grouped = publications_start_year[(publications_start_year.year >= publications_start_year.start_year + start) &
-                                        (publications_start_year.year <= publications_start_year.start_year + end)]   
+        pubs_grouped = publications_start_year[
+            (publications_start_year.year >= publications_start_year.start_year + start) &
+            (publications_start_year.year <= publications_start_year.start_year + end)]
         # for every 2 consecutive years the author has published find a difference (absence time)
         # we artificially add one value: career start + 15, as a limiter of our observation window
         # we add the limiter only if the author did not publish in this year
         pubs_grouped = pubs_grouped.groupby('author').agg({'year': lambda x: sorted(list(x))})
-        pubs_grouped['year'] = pubs_grouped['year'].apply(lambda x: sorted(append_new_only(x, x[0]+15)))
+        pubs_grouped['year'] = pubs_grouped['year'].apply(lambda x: sorted(append_new_only(x, x[0] + 15)))
         pubs_grouped['absence_list'] = pubs_grouped['year'].apply(np.diff)
         pubs_grouped[f'max_absence_{start}_{end}'] = pubs_grouped['absence_list'].apply(max)
         pubs_grouped[f'avg_absence_{start}_{end}'] = pubs_grouped['absence_list'].apply(np.mean)
         pubs_grouped.reset_index(inplace=True)
 
         credible_authors = credible_authors.merge(pubs_grouped[
-            ['author', f'max_absence_{start}_{end}', f'avg_absence_{start}_{end}']], on='author', how='left')
-        credible_authors[f'dropped_after_{INACTIVE_TIME_DROPOUTS}'] = credible_authors[f'max_absence_{start}_{end}'].apply(
+                                                      ['author', f'max_absence_{start}_{end}',
+                                                       f'avg_absence_{start}_{end}']], on='author', how='left')
+        credible_authors[f'dropped_after_{INACTIVE_TIME_DROPOUTS}'] = credible_authors[
+            f'max_absence_{start}_{end}'].apply(
             lambda x: False if x < INACTIVE_TIME_DROPOUTS else True)
+
+
 get_author_avg_max_absence(CAREER_LENGTH_DROPOUTS_LIST, INACTIVE_TIME_DROPOUTS, credible_authors)
 # -
 
@@ -295,14 +298,16 @@ get_author_avg_max_absence(CAREER_LENGTH_DROPOUTS_LIST, INACTIVE_TIME_DROPOUTS, 
 # + {"pycharm": {"name": "#%%\n"}}
 for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     publications_early = publications_start_year[(
-        publications_start_year.year < publications_start_year.start_year + EARLY_CAREER)]
-    paper_team_size = publications_early.groupby('pub_id').agg({'author' : 'nunique'}).reset_index()
+            publications_start_year.year < publications_start_year.start_year + EARLY_CAREER)]
+    paper_team_size = publications_early.groupby('pub_id').agg({'author': 'nunique'}).reset_index()
     paper_team_size = paper_team_size.rename({'author': f'team_size_{EARLY_CAREER}'}, axis='columns')
     publications_early = publications_early.merge(paper_team_size, on='pub_id', how='left')
     team_size_median = publications_early.groupby('author').agg({f'team_size_{EARLY_CAREER}': 'median'}).reset_index()
-    team_size_median = team_size_median.rename({f'team_size_{EARLY_CAREER}': f'team_size_median_{EARLY_CAREER}'}, axis='columns')
+    team_size_median = team_size_median.rename({f'team_size_{EARLY_CAREER}': f'team_size_median_{EARLY_CAREER}'},
+                                               axis='columns')
     team_size_mean = publications_early.groupby('author').agg({f'team_size_{EARLY_CAREER}': 'mean'}).reset_index()
-    team_size_mean = team_size_mean.rename({f'team_size_{EARLY_CAREER}': f'team_size_mean_{EARLY_CAREER}'}, axis='columns')
+    team_size_mean = team_size_mean.rename({f'team_size_{EARLY_CAREER}': f'team_size_mean_{EARLY_CAREER}'},
+                                           axis='columns')
 
     credible_authors = credible_authors.merge(team_size_median, on='author', how='left')
     credible_authors = credible_authors.merge(team_size_mean, on='author', how='left')
@@ -318,16 +323,20 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     combined_early_degree = combined_early_degree.drop_duplicates(subset=['author', 'pub_id'])
 
     combined_early_degree = combined_early_degree[['author', 'pub_id']]
+
     combined_early_degree = combined_early_degree.merge(publications_start_year, on='pub_id')
+
     combined_early_degree = combined_early_degree[combined_early_degree.author_x != combined_early_degree.author_y]
     combined_early_degree = combined_early_degree.drop_duplicates(subset=['author_x', 'author_y'])
+
     combined_early_degree = combined_early_degree.groupby('author_x')['author_y'].count().reset_index()
 
-    combined_early_degree.rename({"author_x":"author", "author_y": f"early_career_degree_{EARLY_CAREER}"}, 
+    combined_early_degree.rename({"author_x": "author", "author_y": f"early_career_degree_{EARLY_CAREER}"},
                                  axis='columns', inplace=True)
 
     credible_authors = credible_authors.merge(combined_early_degree, on='author', how='left')
-    credible_authors[f"early_career_degree_{EARLY_CAREER}"] = credible_authors[f"early_career_degree_{EARLY_CAREER}"].fillna(0)
+    credible_authors[f"early_career_degree_{EARLY_CAREER}"] = credible_authors[
+        f"early_career_degree_{EARLY_CAREER}"].fillna(0)
 
 # ### Venues
 
@@ -375,164 +384,204 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
 for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     publications_first_author_early = publications_first_author[
         (publications_first_author.year < publications_first_author.start_year + EARLY_CAREER)]
-    publications_first_author_early = publications_first_author_early.groupby('author').agg({'pub_id':'count'}).reset_index()
+    publications_first_author_early = publications_first_author_early.groupby('author').agg(
+        {'pub_id': 'count'}).reset_index()
     publications_first_author_early.rename({'pub_id': f'ec_first_auth_{EARLY_CAREER}'}, axis='columns', inplace=True)
     credible_authors = credible_authors.merge(publications_first_author_early, on='author', how='left')
     credible_authors[f'ec_first_auth_{EARLY_CAREER}'] = credible_authors[f'ec_first_auth_{EARLY_CAREER}'].fillna(0)
 # -
 
-# ### Counts Dataframe 
+# ## Counts Dataframe 
 # For every author, construct a 15 years time frame and count metrics for every career age
 
 start_years = get_start_years(START_YEAR, LAST_START_YEAR)
 
-
-# create a dataframe with 15 career age entries for every author
-def create_counts_df():
-    counts0 = credible_authors[['author', 'start_year']].copy()
-    #filter out start years
-    counts0 = counts0[counts0['start_year'].isin(start_years)]
-    counts0['year'] = counts0['start_year'].apply(lambda x: [x+i for i in range(0, 15)])
-    counts = pd.DataFrame(counts0['year'].tolist(), index=counts0['author']).stack().reset_index(
-        level=1, drop=True).reset_index(name='year')[['year','author']]
-    counts = counts.merge(credible_authors[['author', 'start_year', 'end_year', 'gender']], on='author', how='inner')
-    counts['career_age'] = counts['year'] - counts['start_year'] + 1
-    counts['year'] = counts['year'].astype('int32')
-    
-    counts['career_duration'] = counts['end_year']-counts['start_year'] + 1
-    return counts
-
-
 # +
 # create publication and citation dfs for first author
-author_year_numPub_first = publications_first_author.groupby(['first_author', 'year'])['pub_id'].count().reset_index()
-author_year_numPub_first = author_year_numPub_first.rename(columns={'pub_id':'num_pub'})
+author_year_numPub_first = publications_first_author.groupby(['author', 'year'])['pub_id'].count().reset_index()
+author_year_numPub_first = author_year_numPub_first.rename(columns={'pub_id': 'num_pub'})
 
-publications_citations_no_uncited_first = publications_citations_no_uncited.merge(publications_first_author[['author', 'pub_id']], how='inner')
+publications_citations_no_uncited_first = publications_citations_no_uncited.merge(
+    publications_first_author[['author', 'pub_id']], how='inner')
 citations_year_auth_first = publications_citations_no_uncited_first.groupby(['author', 'year_cit'])['id1'].count()
 
 citations_year_auth_first = citations_year_auth_first.reset_index()
-citations_year_auth_first = citations_year_auth_first.rename(columns={'id1':'num_cit', 'year_cit': 'year'})
+citations_year_auth_first = citations_year_auth_first.rename(columns={'id1': 'num_cit', 'year_cit': 'year'})
 # -
 
 print(publications_citations_no_uncited_first.shape)
 print(publications_citations_no_uncited.shape)
 
 
-# + {"code_folding": [26, 29]}
-# add citation and publication window features to citations df
-def add_citation_window_counts(counts_df, combined_df, citations_year_auth_df, author_year_numPub_df):
-    #citations window
-    WINDOW_SIZE = 3
-    df_list = []
-    for year in start_years:
-        df_year = combined_df[combined_df.start_year == year]
-        for y in range(year, year+13): #y is the first year we count for
-            df_window = df_year[(df_year.year_pub>=y) & (df_year.year_cit>=y)& (df_year.year_pub<=y)& 
-                                (df_year.year_cit<y+WINDOW_SIZE)]
-            df_window = df_window.groupby('author').agg({'id1': 'count'}).reset_index()
-            df_window['year'] = y
-            df_window = df_window.rename({'id1' : f'cit_{WINDOW_SIZE}'}, axis=1)
-            df_list.append(df_window)
-    df_cit_3_window = pd.concat(df_list).sort_values(by=['author', 'year'])
+# + {"code_folding": [1, 21, 35, 66, 70]}
+# create a dataframe with 15 career age entries for every author
+def create_counts_df(credible_authors, citations_year_auth_df, author_year_numPub_df):
+    counts0 = credible_authors[['author', 'start_year']].copy()
+    # filter out start years
+    counts0 = counts0[counts0['start_year'].isin(start_years)]
+    counts0['year'] = counts0['start_year'].apply(lambda x: [x + i for i in range(0, 15)])
+    counts = pd.DataFrame(counts0['year'].tolist(), index=counts0['author']).stack().reset_index(
+        level=1, drop=True).reset_index(name='year')[['year', 'author']]
+    counts = counts.merge(credible_authors[['author', 'start_year', 'end_year', 'gender']], on='author', how='inner')
+    counts['career_age'] = counts['year'] - counts['start_year'] + 1
+    counts['year'] = counts['year'].astype('int32')
 
+    counts['career_duration'] = counts['end_year'] - counts['start_year'] + 1
+    
+    counts = add_absolute_counts(counts, citations_year_auth_df, author_year_numPub_df)
+    
+    counts = add_cumulative_counts(counts, 'num_cit')
+    counts = add_cumulative_counts(counts, 'num_pub')
+    
+    return counts
+
+def add_absolute_counts(counts_df, citations_year_auth_df, author_year_numPub_df):
     # merge in publications
     counts_df = counts_df.merge(author_year_numPub_df, on=['author', 'year'], how='left')
     counts_df['num_pub'] = counts_df['num_pub'].fillna(0)
-    counts_df['win_num_pub'] = counts_df.groupby('author')['num_pub'].transform(
-        lambda x: x.rolling(3, min_periods=3).sum().shift(-2))
     # merge in citations
     counts_df = counts_df.merge(citations_year_auth_df, on=['author', 'year'], how='left')
     counts_df['num_cit'] = counts_df['num_cit'].fillna(0)
-    counts_df = counts_df.merge(df_cit_3_window, on=['author', 'year'], how='left')
-    counts_df['cit_3'] = counts_df['cit_3'].fillna(0)
     return counts_df
+
 def add_cumulative_counts(counts_df, feature):
     counts_df = calculate.calculate_cumulative_for_authors(counts_df, feature)
     return counts_df
-def save_counts(counts_df, ext=''):
-    counts_df.to_csv(f'derived-data/citations_window_3{ext}.csv', index=None)
+
+# add citation and publication window features to citations df
+def add_citation_window_counts(counts_df, combined_df, WINDOW_SIZE):
+    """
+    Adds 2 columns to the counts dataframe: win_num_cit, win_num_pub
+    win_num_pub: count publications for career ages, with forward looking windows of size WINDOW_SIZE
+    
+    win_num_cit: for a publication window defined by win_num_pub, count citations in a sliding window
+    that starts at publication year and extends to pub_year+WINDOW_SIZE, non inclusive
+    """
+    shift = -(WINDOW_SIZE - 1)
+    # citations window
+    df_list = []
+    for year in start_years:
+        df_year = combined_df[combined_df.start_year == year]
+        for y in range(year, year + 13):  # y is the first year we count for
+            df_window = df_year[(df_year.year_pub >= y) & (df_year.year_pub < y + WINDOW_SIZE) &
+                                (df_year.year_cit >= y) & 
+                                (df_year.year_cit < df_year.year_pub + WINDOW_SIZE)]
+            df_window = df_window.groupby('author').agg({'id1': 'count'}).reset_index()
+            df_window['year'] = y
+            df_window = df_window.rename({'id1': 'win_num_cit'}, axis=1)
+            df_list.append(df_window)
+    df_cit_window = pd.concat(df_list).sort_values(by=['author', 'year'])
+    counts_df = counts_df.merge(df_cit_window, on=['author', 'year'], how='left')
+    counts_df['win_num_cit'] = counts_df['win_num_cit'].fillna(0)
+    
+    counts_df['win_num_pub'] = counts_df.groupby('author')['num_pub'].transform(
+        lambda x: x.rolling(WINDOW_SIZE, min_periods=WINDOW_SIZE).sum().shift(shift))
+    
+    return counts_df
 
 
-# + {"code_folding": []}
-# %%time
-counts_all_auth = add_citation_window_counts(create_counts_df(),
-                                             publications_citations_no_uncited, author_yearly_citations, author_yearly_publications)
-counts_all_auth = add_cumulative_counts(counts_all_auth, 'num_cit')
-counts_all_auth = add_cumulative_counts(counts_all_auth, 'num_pub')
+def save_counts(counts_df, WINDOW_SIZE, ext=''):
+    counts_df.to_csv(f'derived-data/citations_window_{WINDOW_SIZE}{ext}.csv', index=None)
+
+
+def make_counts_file(base_df, publications_citations_no_uncited, WINDOW_SIZE, file_ext=''):
+    counts_df = base_df.copy(deep=True)
+    counts_df = add_citation_window_counts(base_df, publications_citations_no_uncited, WINDOW_SIZE)
+
+    save_counts(counts_df, WINDOW_SIZE, file_ext)
+    return counts_df
+
+
 # -
 
 # %%time
-counts_first_auth = add_citation_window_counts(create_counts_df(), publications_citations_no_uncited_first, citations_year_auth_first,
-                                               author_year_numPub_first)
-counts_first_auth = add_cumulative_counts(counts_first_auth, 'num_cit')
-counts_first_auth = add_cumulative_counts(counts_first_auth, 'num_pub')
+base_df = create_counts_df(credible_authors, author_yearly_citations, author_yearly_publications)
+base_df_first = create_counts_df(credible_authors, citations_year_auth_first, author_year_numPub_first)
 
-save_counts(counts_all_auth)
-save_counts(counts_first_auth, '_first')
+# %%time
+# all authors
+WINDOW_SIZE = 3
+counts_df = make_counts_file(base_df, publications_citations_no_uncited, WINDOW_SIZE)
+# first author
+counts_df_first = make_counts_file(base_df_first, publications_citations_no_uncited_first, WINDOW_SIZE, file_ext='_first')
 
-# #### Early, mid and late papers analysis - citations
+# %%time
+WINDOW_SIZE = 5
+# all authors
+counts_df_5 = make_counts_file(base_df, publications_citations_no_uncited, WINDOW_SIZE)
+# first author
+counts_df_first_5 = make_counts_file(base_df_first, publications_citations_no_uncited_first, WINDOW_SIZE, file_ext='_first')
+#TODO write tests for counts
 
-# # TODO TEST THIS?!
+# ### Early, mid and late papers analysis - citations
+
+# + {"code_folding": []}
+# TODO TEST THIS?!
 def add_fine_grained_citation_counts(counts):
     # publish_years = [[0,3], [3,6], [6,9], [0,1], [3,4], [6,7]]
-    publish_years = [[i, i+1] for i in range(0,15)]
-    for start,end in publish_years:
+    publish_years = [[i, i + 1] for i in range(0, 15)]
+    for start, end in publish_years:
         first_3 = publications_citations_no_uncited[
             (publications_citations_no_uncited.year_pub >= publications_citations_no_uncited.start_year + start) &
             (publications_citations_no_uncited.year_pub < publications_citations_no_uncited.start_year + end)]
         first_3 = first_3.groupby(['author', 'year_cit']).agg({'id1': 'count'}).reset_index()
-        first_3 = first_3.rename({'year_cit' : 'year', 'id1': f'ec_cit_{start}_{end}'}, axis=1)
+        first_3 = first_3.rename({'year_cit': 'year', 'id1': f'ec_cit_{start}_{end}'}, axis=1)
         counts = counts.merge(first_3, on=['author', 'year'], how='left')
         counts[f'ec_cit_{start}_{end}'] = counts[f'ec_cit_{start}_{end}'].fillna(0)
     for start, end in publish_years:
         counts[f'ec_cit_{start}_{end}_cum'] = counts.sort_values(['author', 'career_age']).groupby('author')[
             f'ec_cit_{start}_{end}'].transform(pd.Series.cumsum)
 
-#
 
+# -
 
+# ### Final success
 
+succ_after_15y = publications_citations_no_uncited[
+    publications_citations_no_uncited.year_cit < publications_citations_no_uncited.start_year + SUCCESS_CUTOFF]
 
+# +
+succ_after_15y = succ_after_15y.groupby('author')['id1'].count()
+
+succ_after_15y = succ_after_15y.rename('succ_after_15y')
+succ_after_15y = succ_after_15y.reset_index()
+credible_authors = credible_authors.merge(succ_after_15y, on='author', how='left')
+credible_authors['succ_after_15y'] = credible_authors['succ_after_15y'].fillna(0)
+# -
 
 
 # ### H index
 
-from scholarmetrics import hindex
-# def h_index(citations):
-#     if len(citations) == 0: return 0
-#     if len(citations) == 1: return 1
-#     citations = sorted(citations, reverse=True)
-#     h_ind = 0
-#     for i, elem in enumerate(citations):
-#         if i+1 > elem:
-#             return i
-#         h_ind = i+1
-#     return h_ind
 
-credible_authors.columnsumns
+
 
 for param in [*EARLY_CAREER_LEN_LIST, SUCCESS_CUTOFF]:
-
     combined_h_index = publications_citations_no_uncited[
         publications_citations_no_uncited.year_cit < publications_citations_no_uncited.start_year + param]
 
     combined_h_index = combined_h_index.groupby(['author', 'pub_id'])['id1'].count()
+
     combined_h_index = combined_h_index.reset_index()
-    combined_h_index = combined_h_index.groupby('author')['id1'].apply(lambda x: hindex(x.values))
+
+    combined_h_index = combined_h_index.groupby('author')['id1'].apply(lambda x: h_index(x.values))
+
     combined_h_index = combined_h_index.rename(f'h-index_{param}')
 
     credible_authors = credible_authors.merge(combined_h_index.reset_index(), on='author', how='left')
     credible_authors[f'h-index_{param}'] = credible_authors[f'h-index_{param}'].fillna(0)
 
-# ### Early career productivity
+# +
+# TODO: test h-index
+# -
 
 # # %%time
 for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     early_career_publications_reduced = publications_start_year[publications_start_year.year <=
-                                                       publications_start_year.start_year + EARLY_CAREER]
-    early_career_publications_ = early_career_publications_reduced.groupby('author').agg({'pub_id': 'nunique'}).reset_index()
-    early_career_publications_ = early_career_publications_.rename({'pub_id':f'early_career_prod_{EARLY_CAREER}'}, axis='columns')
+                                                                publications_start_year.start_year + EARLY_CAREER]
+    early_career_publications_ = early_career_publications_reduced.groupby('author').agg(
+        {'pub_id': 'nunique'}).reset_index()
+    early_career_publications_ = early_career_publications_.rename({'pub_id': f'early_career_prod_{EARLY_CAREER}'},
+                                                                   axis='columns')
     credible_authors = credible_authors.merge(early_career_publications_, on='author', how='left')
 
 
@@ -552,12 +601,12 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
 # -
 
 def author_h_index_in_year_X(authors, year_x):
-#     print(year_x)
+    #     print(year_x)
     combined_h = publications_citations_no_uncited[
         (publications_citations_no_uncited.year_cit < year_x) &
         (publications_citations_no_uncited.author.isin(authors))]
     combined_h = combined_h.groupby(['author', 'pub_id']).agg({'id1': 'count'}).reset_index()
-    author_hind_at_year = combined_h.groupby('author').agg({'id1': hindex}).reset_index()
+    author_hind_at_year = combined_h.groupby('author').agg({'id1': h_index}).reset_index()
     author_hind_at_year['year_pub'] = year_x
     author_hind_at_year = author_hind_at_year.rename({'id1': 'h-index'}, axis='columns')
     return author_hind_at_year
@@ -568,11 +617,12 @@ def author_h_index(author, year_x):
         (publications_citations_no_uncited.year_cit < year_x) &
         (publications_citations_no_uncited.author == author)]
     citations_count_list = combined_h.groupby(['pub_id']).agg({'id1': 'count'})['id1'].values
-    return hindex(citations_count_list)
+    return h_index(citations_count_list)
 
 
 # # %%time
-papers_authors = publications_citations_no_uncited[['author', 'year_pub']].drop_duplicates(subset=['author', 'year_pub'])
+papers_authors = publications_citations_no_uncited[['author', 'year_pub']].drop_duplicates(
+    subset=['author', 'year_pub'])
 
 # # %%time
 all_authors_hind = pd.DataFrame(columns=['author', 'h-index', 'year_pub'])
@@ -597,7 +647,8 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     # merging with combined_df not to remove coauthors that are not in their early career
     combined_early_coauthor = combined_early_coauthor.merge(publications_start_year, on='pub_id')
 
-    combined_early_coauthor = combined_early_coauthor[combined_early_coauthor.author_x != combined_early_coauthor.author_y]
+    combined_early_coauthor = combined_early_coauthor[
+        combined_early_coauthor.author_x != combined_early_coauthor.author_y]
     combined_early_coauthor = combined_early_coauthor.drop_duplicates(subset=['author_x', 'author_y'])
 
     # papers_authors contains h-index of authors in different publishing years
@@ -606,13 +657,15 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
 
     combined_early_coauthor = combined_early_coauthor.groupby('author_x')['h-index'].max().reset_index()
 
-    combined_early_coauthor.rename({"author_x":"author", "h-index": f"early_career_coauthor_max_hindex_{EARLY_CAREER}"}, 
-                                 axis='columns', inplace=True)
+    combined_early_coauthor.rename(
+        {"author_x": "author", "h-index": f"early_career_coauthor_max_hindex_{EARLY_CAREER}"},
+        axis='columns', inplace=True)
 
     combined_early_coauthor = combined_early_coauthor[['author', f"early_career_coauthor_max_hindex_{EARLY_CAREER}"]]
 
     credible_authors = credible_authors.merge(combined_early_coauthor, on='author', how='left')
-    credible_authors[f"early_career_coauthor_max_hindex_{EARLY_CAREER}"] = credible_authors[f"early_career_coauthor_max_hindex_{EARLY_CAREER}"].fillna(0)
+    credible_authors[f"early_career_coauthor_max_hindex_{EARLY_CAREER}"] = credible_authors[
+        f"early_career_coauthor_max_hindex_{EARLY_CAREER}"].fillna(0)
 
 # +
 # for year in EARLY_CAREER_LEN_LIST[1:]:
@@ -626,12 +679,12 @@ EARLY_CAREER_LEN_LIST
 for year in EARLY_CAREER_LEN_LIST:
     credible_authors[f'citation_increase_15_{year}'] = credible_authors['succ_after_15y'] - credible_authors[
         f'early_career_recognition_EC{year}_RC{year}']
-#     credible_authors[f'h_index_increase_{year}_{EARLY_CAREER}'] = credible_authors[
-#         f'h-index_{year}'] - credible_authors[f'h-index_{EARLY_CAREER}']
-    credible_authors[f'h_index_increase_15_{year}'] = credible_authors[f'h-index_15'] - credible_authors[
-        f'h-index_{year}']
-
-credible_authors.columns.values
+    credible_authors[f'h_index_increase_{year}_{EARLY_CAREER}'] = credible_authors[
+                                                                      f'h-index_{year}'] - credible_authors[
+                                                                      f'h-index_{EARLY_CAREER}']
+    credible_authors[f'h_index_increase_15_{EARLY_CAREER}'] = credible_authors[
+                                                                  f'h-index_15'] - credible_authors[
+                                                                  f'h-index_{EARLY_CAREER}']
 
 
 # ### Early Coauthor max citations
@@ -664,15 +717,15 @@ credible_authors.columns.values
 # drop
 def drop_list_cols(drop_list):
     credible_authors.drop(drop_list, axis=1, inplace=True)
+
+
 def drop_col(df, cols):
     df.drop(cols, axis='columns', inplace=True)
 
 
 # ## Save
 
-filter_cred_authors(START_YEAR, LAST_START_YEAR).to_csv('derived-data/authors-scientific-extended.csv',
-                    index=False, encoding='utf-8')
+credible_authors[credible_authors.start_year >= START_YEAR].to_csv('derived-data/authors-scientific-extended.csv',
+                                                                   index=False, encoding='utf-8')
 
-credible_authors.columns.values
-
-
+credible_authors.columns

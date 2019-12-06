@@ -140,7 +140,16 @@ def calculate_cumulative_for_authors(data, criterion):
 
     return data
 
-
+def h_index(citations):
+    if len(citations) == 0: return 0
+    if len(citations) == 1: return 1
+    citations = sorted(citations, reverse=True)
+    h_ind = 0
+    for i, elem in enumerate(citations):
+        if i + 1 > elem:
+            return i
+        h_ind = i + 1
+    return h_ind
 
 
 

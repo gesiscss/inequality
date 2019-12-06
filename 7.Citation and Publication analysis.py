@@ -56,33 +56,24 @@ author_order = pd.read_csv('derived-data/publication_authors_order_2017.csv')
 
 credible_authors = pd.read_csv('derived-data/authors-scientific-extended.csv')
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Window counts
 
-# + {"hidden": true, "cell_type": "markdown"}
 # Load in citation window data:
 
-# + {"hidden": true}
 WINDOW_SIZE = 3
 citations_window = pd.read_csv(f'derived-data/citations_window_{WINDOW_SIZE}.csv')
-citations_window.head()
-
-# + {"hidden": true}
 citations_window_first = pd.read_csv(f'derived-data/citations_window_{WINDOW_SIZE}_first.csv')
-citations_window_first.head()
 
-# + {"hidden": true}
+WINDOW_SIZE = 5
+citations_window_5 = pd.read_csv(f'derived-data/citations_window_{WINDOW_SIZE}.csv')
+citations_window_first_5 = pd.read_csv(f'derived-data/citations_window_{WINDOW_SIZE}_first.csv')
+
+# +
 citations_window = citations_window.merge(credible_authors[['author', 'dropped_after_10']], on='author', how='left')
+citations_window_first = citations_window_first.merge(credible_authors[['author', 'dropped_after_10']], on='author', how='left')
 
-# + {"hidden": true}
-counts = citations_window
-
-# + {"hidden": true}
-counts[counts.author == 'donald g. frantz']
-
-# + {"hidden": true}
-
-
+citations_window_5 = citations_window_5.merge(credible_authors[['author', 'dropped_after_10']], on='author', how='left')
+citations_window_first_5 = citations_window_first_5.merge(credible_authors[['author', 'dropped_after_10']], on='author', how='left')
 
 # + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Citations and uncited papers
@@ -166,7 +157,7 @@ agg_cit_per_auth_year = agg_cit_per_auth_year[(agg_cit_per_auth_year.start_year 
 agg_cit_per_auth_year_avg = agg_cit_per_auth_year_avg[(agg_cit_per_auth_year_avg.start_year >= 1970) &
                                               (agg_cit_per_auth_year_avg.start_year <=2000)]
 
-# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
+# + {"hidden": true, "cell_type": "markdown"}
 # #### Data interrogation 
 
 # + {"hidden": true}
@@ -424,11 +415,11 @@ def plot_first_auth_ineq_gini(data_df, param):
     fig.savefig(f'./fig-7-notebook/first_auth_ineq_gini_{param}_squeze.pdf')
 plot_first_auth_ineq_gini(df_gini_max_y5, 'avg')
 plot_first_auth_ineq_gini(df_gini_max_y5, 'max')
+# -
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Cliffs Delta
 
-# + {"hidden": true}
+# +
 cum_cit_pub_agg_first = citations_window_first.groupby(['start_year', 'career_age', 'gender']).agg({
     'cum_num_pub': list,
     'cum_num_cit': list
@@ -440,7 +431,7 @@ cum_cit_pub_agg = citations_window.groupby(['start_year', 'career_age', 'gender'
 }).reset_index()
 
 
-# + {"code_folding": [], "hidden": true}
+# + {"code_folding": []}
 def get_cohort_effect_size(cohort_careerage_df, metric, gen_a='m', gen_b='f', eff_form='r'):
     data = cohort_careerage_df[cohort_careerage_df.gender.isin([gen_a, gen_b])]
     data = data.set_index(['start_year', 'career_age', 'gender']).unstack(level=-1)
@@ -452,16 +443,13 @@ def get_cohort_effect_size(cohort_careerage_df, metric, gen_a='m', gen_b='f', ef
     data = data.join(mwu)
     data = data[['cliffd_m_f', 'effect', 'statistic', 'pvalue']]
     data = data.reset_index()
-    return data
-
-def get_effect_size_stats(cohort_careerage_df, metric):
-    
+    return data    
 
 
-# + {"code_folding": [], "hidden": true}
+# + {"code_folding": []}
 # TEST Debugger
 from IPython.core.debugger import set_trace
-def plot_cohort_diffs_over_ages(stats, criterion, criterion_display, ext=''):
+def plot_cohort_diffs_over_ages(stats, criterion, criterion_display, ext='', remove_half=False):
     # x - career age
 #     plt = plot.init_plotting()
     i = 0  # to point to the right figure
@@ -473,8 +461,9 @@ def plot_cohort_diffs_over_ages(stats, criterion, criterion_display, ext=''):
     cohort_start_years = np.unique(stats["start_year"].values)
     # remove 1970 from plot
     cohort_start_years = cohort_start_years[1:]
-    # remove every second year
-    cohort_start_years = cohort_start_years[1::2]
+    if remove_half:
+        # remove every second year
+        cohort_start_years = cohort_start_years[1::2]
     # 15 cohorts?
     num_coh = len(cohort_start_years)
     if (num_coh > 20):
@@ -495,9 +484,9 @@ def plot_cohort_diffs_over_ages(stats, criterion, criterion_display, ext=''):
 
     for year in cohort_start_years:
         cohort = stats[stats["start_year"] == year]
-        # TODO Mesamo babe i zabe
-        sig_male = cohort[(cohort['cliffd_m_f']>0.1)].shape[0]# & (cohort.pvalue <= 0.05)
-        sig_female = cohort[(cohort['cliffd_m_f']<-0.1)].shape[0]# & (cohort.pvalue <= 0.05)
+        
+        sig_male = cohort[(cohort['cliffd_m_f']>=0.1)].shape[0]# & (cohort.pvalue <= 0.05)
+        sig_female = cohort[(cohort['cliffd_m_f']<=-0.1)].shape[0]# & (cohort.pvalue <= 0.05)
         significant_effect = cohort[cohort.pvalue <= 0.05]
         
         sig_eff_career_ages = significant_effect.career_age.values
@@ -521,6 +510,9 @@ def plot_cohort_diffs_over_ages(stats, criterion, criterion_display, ext=''):
     plt.close(fig3)
 
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
+# #### What are the variance differences between the population of men and women
+
 # + {"hidden": true}
 cum_cit_pub_agg_first_m_f = cum_cit_pub_agg_first[cum_cit_pub_agg_first.gender.isin(['m', 'f'])]
 cum_cit_pub_agg_first_m_f['cum_num_pub_var'] = cum_cit_pub_agg_first_m_f['cum_num_pub'].apply(np.var)
@@ -528,29 +520,57 @@ cum_cit_pub_agg_first_m_f['cum_num_cit_var'] = cum_cit_pub_agg_first_m_f['cum_nu
 
 # + {"hidden": true}
 cum_cit_pub_agg_first_m_f.groupby(['start_year', 'career_age'])['cum_num_pub_var'].apply(pd.DataFrame.diff)
+# -
 
-# + {"hidden": true}
+# #### Plot
 
-
-
-# + {"hidden": true}
+# +
 mwu_cliff_d_cum_pub_first = get_cohort_effect_size(cum_cit_pub_agg_first, 'cum_num_pub')
 mwu_cliff_d_cum_cit_first = get_cohort_effect_size(cum_cit_pub_agg_first, 'cum_num_cit')
 
 mwu_cliff_d_cum_pub = get_cohort_effect_size(cum_cit_pub_agg, 'cum_num_pub')
 mwu_cliff_d_cum_cit = get_cohort_effect_size(cum_cit_pub_agg, 'cum_num_cit')
 
-# + {"hidden": true}
-sum(mwu_cliff_d_cum_pub_first['cliffd_m_f'] > 0.1)
-
-# + {"hidden": true}
-
+# +
+# TODO are mwu and delta same sided?
+# -
 
 
-# + {"hidden": true}
-mwu_cliff_d_cum_pub_first.groupby('start_year').agg({'cliffd_m_f': [lambda x: sum(x >= 0.1), lambda x: sum(x < -0.1)]})
+def get_effect_size_stats(stats):
+    effect_size_count = stats.groupby('start_year').agg({'cliffd_m_f': [lambda x: sum(x >= 0.1), lambda x: sum(x <= -0.1)],
+                                                         'pvalue': lambda x: sum(x <= 0.05)})
+    effect_size_count.columns = ['sig_male', 'sig_female', 'sig_mwu']
+    return effect_size_count
 
-# + {"hidden": true}
+
+mwu_cliff_d_cum_cit[mwu_cliff_d_cum_cit.start_year == 1979]
+
+# TODO 1970 should be removed
+mwu_cliff_d_cum_cit[mwu_cliff_d_cum_cit.cliffd_m_f <0]
+
+dfs = [mwu_cliff_d_cum_pub, mwu_cliff_d_cum_cit, mwu_cliff_d_cum_pub_first, mwu_cliff_d_cum_cit_first]
+names = ['Publications', 'Citations', 'Pub. first', 'Cit. first']
+res = []
+res2 = []
+for df in dfs:
+    effect_size_count = get_effect_size_stats(df)
+    res.append(effect_size_count[effect_size_count > 1.0].count())
+    res2.append(effect_size_count.sum())
+#     print(effect_size_count)
+#     print()
+num_cohorts = pd.DataFrame(res)
+num_cohorts = num_cohorts.T
+num_cohorts.columns = names
+
+num_cohorts
+
+num_observations = pd.DataFrame(res2)
+num_observations = num_observations.T
+num_observations.columns = names
+
+num_observations
+
+# +
 # pubs
 plot_cohort_diffs_over_ages(mwu_cliff_d_cum_pub_first, 'mwu_cliffsd_cum_pub', 'Cumulative publications first auth', ext='_first')
 plot_cohort_diffs_over_ages(mwu_cliff_d_cum_pub, 'mwu_cliffsd_cum_pub', 'Cumulative publications')
@@ -559,11 +579,21 @@ plot_cohort_diffs_over_ages(mwu_cliff_d_cum_pub, 'mwu_cliffsd_cum_pub', 'Cumulat
 plot_cohort_diffs_over_ages(mwu_cliff_d_cum_cit_first, 'mwu_cliffsd_cum_cit', 'Cumulative citations first auth', ext='_first')
 plot_cohort_diffs_over_ages(mwu_cliff_d_cum_cit, 'mwu_cliffsd_cum_cit', 'Cumulative citations')
 
+# pubs
+plot_cohort_diffs_over_ages(mwu_cliff_d_cum_pub_first, 'mwu_cliffsd_cum_pub', 'Cumulative publications first auth',
+                            ext='_first', remove_half=True)
+plot_cohort_diffs_over_ages(mwu_cliff_d_cum_pub, 'mwu_cliffsd_cum_pub', 'Cumulative publications', remove_half=True)
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# cit
+plot_cohort_diffs_over_ages(mwu_cliff_d_cum_cit_first, 'mwu_cliffsd_cum_cit', 'Cumulative citations first auth', 
+                            ext='_first', remove_half=True)
+plot_cohort_diffs_over_ages(mwu_cliff_d_cum_cit, 'mwu_cliffsd_cum_cit', 'Cumulative citations', remove_half=True)
+
+
+# -
+
 # ## Inequality of papers
 
-# + {"hidden": true}
 def plot_ineq_papers_cohort(cohort_year, years_in_future=5, career_ages=[0,1,2,5,10], func=gini,
                            data=uncited_papers_network_first_auth):
     
@@ -593,37 +623,31 @@ def plot_ineq_papers_cohort(cohort_year, years_in_future=5, career_ages=[0,1,2,5
     plt.show()
 
 
-# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
 # ### Authors with career len > 10
 
-# + {"hidden": true}
+# +
 # plot_ineq_papers_cohort(2000, 5, func=percentage_zeros, data=uncited_papers_network_first_auth_10)
 
-# + {"hidden": true}
+# +
 # plot_ineq_papers_cohort(2000, 5, func=gini, data=uncited_papers_network_first_auth_10)
 
-# + {"hidden": true}
+# +
 # plot_ineq_papers_cohort(2000, 5, func=gini_nonzero, data=uncited_papers_network_first_auth_10)
+# -
 
-# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
 # ### All authors
 
-# + {"hidden": true}
 plot_ineq_papers_cohort(2000, 5, func=percentage_zeros)
 plot_ineq_papers_cohort(2000, 5, func=gini_nonzero)
 plot_ineq_papers_cohort(2000, 5, func=gini)
 
-# + {"hidden": true}
 plot_ineq_papers_cohort(2000, 5, func=np.mean)
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Cohort Sizes
 
-# + {"hidden": true}
 cohort_sizes = counts.groupby('start_year').agg({'author': 'nunique'})
 
 
-# + {"hidden": true}
 def plot_cohort_size_over_years():
     linewidth = 2
     fontsize = 18
@@ -652,10 +676,9 @@ def plot_cohort_size_over_years():
 plot_cohort_size_over_years()
 
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Make plot
 
-# + {"code_folding": [0, 39], "hidden": true}
+# + {"code_folding": [39]}
 def plot_criteria_over_career_ages(data, criteria, criteria_name, title, letter, x_start=1, x_end=15, legend=True, name_ext=''):
     linewidth = 2
     fontsize = 18
@@ -701,23 +724,25 @@ def plot_heatmap(data, publish_years, crit):
     sns.heatmap(data_matrix.T[::-1], cmap="YlGnBu")
 
 
-# + {"code_folding": [0], "hidden": true}
-def agg_data_df(citations_window, func, func_name):
+# + {"code_folding": []}
+def agg_data_df(citations_window, func, func_name, remove_zero=False):
     cohort_counts = citations_window.groupby(['start_year', 'career_age']).agg({
-    'cum_num_pub':func, 'cum_num_cit':func, 'win_num_pub':func})
+    'cum_num_pub':func, 'cum_num_cit':func, 'win_num_pub':func, 'win_num_cit':func})
     # remove people not competing for attention
-    cohort_counts_pub_gt0 = citations_window[citations_window['num_pub']>0].groupby(['start_year', 'career_age']).agg({
-    'cit_3':func})
-    cohort_counts['cit_3'] = cohort_counts_pub_gt0['cit_3']
+    if remove_zero:
+        cohort_counts_pub_gt0 = citations_window[citations_window['win_num_pub']>0].groupby(
+            ['start_year', 'career_age']).agg({'win_num_cit':func, 'win_num_pub':func})
+        cohort_counts['win_num_cit'] = cohort_counts_pub_gt0['win_num_cit']
+        cohort_counts['win_num_pub'] = cohort_counts_pub_gt0['win_num_pub']
     cohort_counts.reset_index(inplace=True)
     cohort_counts = cohort_counts.rename({
         'cum_num_pub':f'{func_name}_cum_num_pub', 
         'cum_num_cit':f'{func_name}_cum_num_cit',
         'win_num_pub':f'{func_name}_win_num_pub',
-        'cit_3': f'{func_name}_win_num_cit'
+        'win_num_cit': f'{func_name}_win_num_cit'
     }, axis='columns')
     return cohort_counts
-# + {"code_folding": [0], "hidden": true}
+# + {"code_folding": []}
 def plot_array_configs(data, configs, letters, x_ends, name_ext=''):
     legend = True
     for config, letter, x_end in zip(configs, letters, x_ends):
@@ -725,7 +750,7 @@ def plot_array_configs(data, configs, letters, x_ends, name_ext=''):
         legend = False
 
 
-# + {"code_folding": [0], "hidden": true}
+# + {"code_folding": []}
 def get_config(crit, crit_name):
     config1 = [(f'{crit}_cum_num_pub', f'{crit_name} Productivity', 'Cumulative Counting'),
                (f'{crit}_win_num_pub', f'{crit_name} Productivity', 'Window Counting'),
@@ -736,9 +761,10 @@ letters1 = ['A', 'B', 'C', 'D']
 letters2 = ['E', 'F', 'G', 'H']
 letters3 = ['I', 'J', 'K', 'L']
 x_ends = [15,13,15,13]
+x_ends2 = [15,11,15,11]
 
 
-# + {"code_folding": [0], "hidden": true}
+# + {"code_folding": [0]}
 def plot_early_late_work(author_early_work, years_list, name_ext=''):
     num_iter = len(years_list)
     crits = ['_cum', '']
@@ -757,20 +783,33 @@ def plot_early_late_work(author_early_work, years_list, name_ext=''):
         legend = False
 
 
-# + {"code_folding": [0], "hidden": true}
+# + {"code_folding": [0]}
 def agg_data_early_late(citations_window, func, publish_years):
     aggregate = {f'ec_cit_{start}_{end}': func for start,end in publish_years}
     aggregate.update({f'ec_cit_{start}_{end}_cum': func for start,end in publish_years})
 
     author_early_work = citations_window[citations_window['num_pub']>0].groupby(['start_year', 'career_age']).agg(aggregate).reset_index()
     return author_early_work
+# -
 
-
-# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ###### Plot for latex
 
-# + {"hidden": true}
-def plot_for_latex(citations_window):
+
+
+# + {"code_folding": []}
+def plot_for_latex2(citations_window, citations_window_first, x_ends):
+    # all authors
+    cohort_counts_gini = agg_data_df(citations_window, gini, 'gini')
+    plot_array_configs(cohort_counts_gini, get_config('gini', 'Gini'), letters1, x_ends)
+    # zero removed
+    cohort_counts_gini = agg_data_df(citations_window, gini, 'gini', remove_zero=True)
+    plot_array_configs(cohort_counts_gini, get_config('gini', 'Gini'), letters2, x_ends, name_ext='_nozero')
+    # zero percentage
+    cohort_counts_pzero = agg_data_df(citations_window, percentage_zeros, 'pzero')
+    plot_array_configs(cohort_counts_pzero, get_config('pzero', '%0'), letters3, x_ends)
+    
+def plot_for_latex(citations_window, citations_window_first, x_ends):
+    # TODO doesnt add a sufix for 5 years vs 3
     # all authors
     cohort_counts_gini = agg_data_df(citations_window, gini, 'gini')
     plot_array_configs(cohort_counts_gini, get_config('gini', 'Gini'), letters1, x_ends)
@@ -782,75 +821,63 @@ def plot_for_latex(citations_window):
     cohort_counts_stayed_gini = agg_data_df(citations_window_stayed, gini, 'gini')
     plot_array_configs(cohort_counts_stayed_gini, get_config('gini', 'Gini'), letters2, x_ends, name_ext='_stay')
 
-plot_for_latex(citations_window);
+# plot_for_latex(citations_window, citations_window_first, x_ends)
+# plot_for_latex(citations_window_5, citations_window_first_5, x_ends2)
+# plot_for_latex2(citations_window, citations_window_first, x_ends)
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+
+# -
+
 # ## Ginis
 
-# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # #### First author
 
-# + {"hidden": true}
 cohort_counts_gini_first = agg_data_df(citations_window_first, gini, 'gini')
 
-# + {"hidden": true}
 plot_array_configs(cohort_counts_gini_first, get_config('gini', 'Gini'), letters3, x_ends, name_ext='_first')
 
-# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # #### Cumulative and time windows
 
-# + {"hidden": true}
 cohort_counts_gini = agg_data_df(citations_window, gini, 'gini')
 
-# + {"hidden": true}
 plot_array_configs(cohort_counts_gini, get_config('gini', 'Gini'), letters1, x_ends)
 
-# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # #### Non zero
 
-# + {"hidden": true}
 cohort_counts_gini_nonzero = agg_data_df(citations_window, gini_nonzero, 'gini_nonzero')
 
-# + {"hidden": true}
 plot_array_configs(cohort_counts_gini_nonzero, get_config('gini_nonzero', 'Gini$_{>0}$'), letters1, x_ends)
 
-# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # #### Inequality of early vs later work
 
-# + {"hidden": true}
+# +
 # publish_years = [[0,3], [3,6], [6,9], [0,1], [3,4], [6,7]]
 # first_year = 0
 # publish_years = [[i, i+1] for i in range(first_year,15)]
 # author_gini_early_work = agg_data_early_late(citations_window, gini, publish_years)
 
-# + {"hidden": true}
+# +
 # plot_heatmap(author_gini_early_work, publish_years, '_cum')
 
-# + {"hidden": true}
+# +
 # plot_heatmap(author_gini_early_work, publish_years, '')
 
-# + {"hidden": true}
+# +
 # years_list = [[0,1], [3,4], [6,7]]
 # plot_early_late_work(author_gini_early_work, years_list)
+# -
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## HHI
 
-# + {"hidden": true}
 cohort_counts_hhi = agg_data_df(citations_window, hhi, 'hhi')
 
-# + {"hidden": true}
 plot_array_configs(cohort_counts_hhi, get_config('hhi', 'HHI'), letters1, x_ends)
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Percentage zeros
 
-# + {"hidden": true}
 cohort_counts_pzero = agg_data_df(citations_window, percentage_zeros, 'pzero')
 
-# + {"hidden": true}
 plot_array_configs(cohort_counts_pzero, get_config('pzero', '%0'), letters1, x_ends)
-# -
 
 # ## Remove dropouts
 
@@ -867,39 +894,31 @@ plot_array_configs(cohort_counts_stayed_gini, get_config('gini', 'Gini'), letter
 cohort_counts_stayed_pzero = agg_data_df(citations_window_stayed, percentage_zeros, 'pzero')
 plot_array_configs(cohort_counts_stayed_pzero, get_config('pzero', '%0'), letters1, x_ends)
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Early vs late
 
-# + {"hidden": true}
+# +
 # publish_years = [[0,3], [3,6], [6,9], [0,1], [3,4], [6,7]]
 publish_years = [[i, i+1] for i in range(1,15)]
 
 author_gini_early_work_stayed = agg_data_early_late(citations_window_stayed, gini, publish_years)
+# -
 
-# + {"hidden": true}
 plot_heatmap(author_gini_early_work_stayed, publish_years, '')
 
-# + {"hidden": true}
 plot_heatmap(author_gini_early_work_stayed, publish_years, '_cum')
 
-# + {"hidden": true}
 author_gini_early_work_stayed.columns
 
-# + {"hidden": true}
 years_list = [[1,2], [3,4], [6,7]]
 plot_early_late_work(author_gini_early_work_stayed, years_list, name_ext='_stay')
 
-# + {"hidden": true}
 stop here
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Distributions
 
-# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
 # ### Cohort Years
 # Cumulative numbers needed.
 
-# + {"hidden": true}
 start_year = 2000
 career_age = 15
 data = counts[(counts['start_year'] == start_year) & (counts['career_age'] == career_age)]['cum_num_pub']
@@ -907,58 +926,45 @@ data = data[data > 0]
 #np.median(data)
 #np.round(np.mean(data))
 
-# + {"hidden": true}
 # pdf='cum_num_pub_2000.pdf'
 cars.fit_univariate(data, discrete=True, xmin=1, xlabel='p', title='2000', bins=24, bootstrap=None, col=1, marker='o', markersize=12, linewidth=2, fontsize=24, unbinned_data=True, pdf=None, png=None)
 
-# + {"hidden": true}
 #guys from 2000 cohort with more than 300 papers
 counts[(counts['start_year'] == 2000) & (counts['career_age'] == 15) & (counts['cum_num_pub'] > 300)][['author', 'cum_num_pub']]
 
-# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
 # ### Years
 
-# + {"hidden": true}
 # publications produced between 1971 and 2014
 #p = list(counts[counts['year'].between(1971, 2014)][['author', 'num_pub']].groupby('author').sum().reset_index(drop=True)['num_pub'])
 # publications by all authors from cohorts 1971 to 2000 produced in their first 15 years
 p = list(counts[(counts['start_year'].between(1971, 2000)) & (counts['career_age'].between(1, 15))][['author', 'num_pub']].groupby('author').sum().reset_index(drop=True)['num_pub'])
 p = [int(x) for x in p if x>0]
 
-# + {"hidden": true}
 # citations received between 1971 and 2014
 #c = list(counts[counts['year'].between(1971, 2014)][['author', 'num_cit']].groupby('author').sum().reset_index(drop=True)['num_cit'])
 # citations received by all authors from cohorts 1971 to 2000 in their first 15 years
 c = list(counts[(counts['start_year'].between(1971, 2000)) & (counts['career_age'].between(1, 15))][['author', 'num_cit']].groupby('author').sum().reset_index(drop=True)['num_cit'])
 c = [int(x) for x in c if x>0]
 
-# + {"hidden": true}
 import compsoc as cs
 
-# + {"hidden": true}
 parameters_p, test_statistics_p = cs.fit_power_law(l=p, discrete=True, xmin=1, fit=None, sims=None, bootstrap=None, data_original=False, markersize=9, linewidth=2, fontsize=18, marker=0, color=1, xlabel='p', title='', legend=False, letter='', Pdf=None, png=None)
 
-# + {"hidden": true}
 parameters_c, test_statistics_c = cs.fit_power_law(l=c, discrete=True, xmin=1, fit=None, sims=None, bootstrap=None, data_original=False, markersize=9, linewidth=2, fontsize=18, marker=0, color=2, xlabel='c', title='', legend=False, letter='', Pdf=None, png=None)
 
-# + {"hidden": true}
 a_bin_p = cs.bin_pdf(cs.pdf(p))
 a_bin_c = cs.bin_pdf(cs.pdf(c))
 
-# + {"hidden": true}
 import powerlaw as pl
 
-# + {"hidden": true}
 f_p = pl.Fit(p, discrete=True, xmin=1)
 f_c = pl.Fit(c, discrete=True, xmin=1)
 
-# + {"hidden": true}
 space_xmin_p = np.logspace(np.log10(f_p.xmin), np.log10(max(f_p.data_original)), 100)
 space_xmin_c = np.logspace(np.log10(f_c.xmin), np.log10(max(f_c.data_original)), 100)
 scale_p = f_p.n_tail/len(f_p.data_original)
 scale_c = f_c.n_tail/len(f_c.data_original)
 
-# + {"hidden": true}
 fontsize = 18
 linewidth = 2
 markersize = 9
@@ -991,66 +997,50 @@ plt.subplots_adjust(left=0.25, right=0.95, bottom=0.2, top=0.9)
 fig.savefig('./fig-7-notebook/distributions.pdf')
 plt.show()
 
-# + {"hidden": true}
 
 
 
-# + {"hidden": true}
 
 
 
-# + {"hidden": true}
 
 
 
-# + {"hidden": true}
 
 
 
-# + {"hidden": true}
 
 
 
-# + {"hidden": true}
 
 
 
-# + {"hidden": true}
 
 
 
-# + {"hidden": true}
 year = 2014
 p = counts[counts['year'] == year]['cum_num_pub']
 p = p[p > 0]
 #np.median(p)
 #np.round(np.mean(p))
 
-# + {"hidden": true}
 # pdf='years_cum_num_pub_2014.pdf'
 cars.fit_univariate(p, discrete=True, xmin=1, xlabel='p', title=None, bins=24, bootstrap=None, col=1, marker='o', markersize=12, linewidth=2, fontsize=18, unbinned_data=True, pdf='years_cum_num_pub_2014.pdf', png='years_cum_num_pub_2014.png')
 
-# + {"hidden": true}
 pubids = authorPublicationData.pub_id.tolist()
 
-# + {"hidden": true}
 df_citations = pd.read_csv('data/paper_venue_citations.csv', sep='\t')
 
-# + {"hidden": true}
 df_citations = df_citations[df_citations.year.between(1970, 2014)]
 df_citations = df_citations[df_citations.paper2.isin(pubids)]
 
-# + {"hidden": true}
 c = df_citations.groupby(['venue2']).size()
 
-# + {"hidden": true}
 ### pdf='years_cum_num_cit_2014.pdf'
 cars.fit_univariate(c, discrete=True, xmin=(1, 10), xlabel='c', title=None, bins=24, bootstrap=None, col=2, marker='o', markersize=12, linewidth=2, fontsize=18, unbinned_data=True, pdf='bradford_2014.pdf', png='bradford_2014.png')
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Matthew Effect
 
-# + {"hidden": true}
 # prepare output tables
 micro_stats = pd.DataFrame(columns=['t', 'dt', 'author', 'eta'])
 macro_stats = pd.DataFrame(columns=['t', 'dt', 'n', 'D', 'beta', 'beta_std', 'r2', 'reduced_chi'])
@@ -1088,18 +1078,14 @@ for t in range(1970+dt, 2015-dt+2): # range(1975, 2012) for dt=5
 micro_stats.to_csv('matthew/micro_c_'+fit+'Bin_dt'+str(dt)+'.txt', sep='\t', index=False)
 macro_stats.to_csv('matthew/macro_c_'+fit+'Bin_dt'+str(dt)+'.txt', sep='\t', index=False)
 
-# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
 # ### Cumulative Advantage
 
-# + {"hidden": true}
 macro_p_olsBin_dt5 = pd.read_csv('matthew/macro_p_olsBin_dt5.txt', sep='\t')
 macro_c_olsBin_dt5 = pd.read_csv('matthew/macro_c_olsBin_dt5.txt', sep='\t')
 
-# + {"hidden": true}
 macro_p_odrBin_dt5 = pd.read_csv('matthew/macro_p_odrBin_dt5.txt', sep='\t')
 macro_c_odrBin_dt5 = pd.read_csv('matthew/macro_c_odrBin_dt5.txt', sep='\t')
 
-# + {"hidden": true}
 plt.fill_between(macro_p_olsBin_dt5['t'], macro_p_olsBin_dt5['beta']-macro_p_olsBin_dt5['beta_std'], macro_p_olsBin_dt5['beta']+macro_p_olsBin_dt5['beta_std'], color=color_pale[1], linewidth=0)
 plt.fill_between(macro_c_olsBin_dt5['t'], macro_c_olsBin_dt5['beta']-macro_c_olsBin_dt5['beta_std'], macro_c_olsBin_dt5['beta']+macro_p_olsBin_dt5['beta_std'], color=color_pale[2], linewidth=0)
 plt.plot(macro_p_olsBin_dt5['t'], macro_p_olsBin_dt5['beta'], color=color_full[1], label='Productivity')
@@ -1109,7 +1095,6 @@ plt.xlabel('Year')
 plt.ylabel('Cumulative Advantage')
 plt.legend()
 
-# + {"hidden": true}
 plt.fill_between(macro_p_odrBin_dt5['t'], macro_p_odrBin_dt5['beta']-macro_p_odrBin_dt5['beta_std'], macro_p_odrBin_dt5['beta']+macro_p_odrBin_dt5['beta_std'], color=color_pale[1], linewidth=0)
 plt.fill_between(macro_c_odrBin_dt5['t'], macro_c_odrBin_dt5['beta']-macro_c_odrBin_dt5['beta_std'], macro_c_odrBin_dt5['beta']+macro_p_odrBin_dt5['beta_std'], color=color_pale[2], linewidth=0)
 plt.plot(macro_p_odrBin_dt5['t'], macro_p_odrBin_dt5['beta'], color=color_full[1], label='Productivity')
@@ -1119,24 +1104,18 @@ plt.xlabel('Year')
 plt.ylabel('Cumulative Advantage')
 plt.legend()
 
-# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
 # ### Fitness
 
-# + {"hidden": true}
 micro_p_olsBin_dt5 = pd.read_csv('matthew/micro_p_olsBin_dt5.txt', sep='\t')
 micro_c_olsBin_dt5 = pd.read_csv('matthew/micro_c_olsBin_dt5.txt', sep='\t')
 
-# + {"hidden": true}
 micro_p_odrBin_dt5 = pd.read_csv('matthew/micro_p_odrBin_dt5.txt', sep='\t')
 micro_c_odrBin_dt5 = pd.read_csv('matthew/micro_c_odrBin_dt5.txt', sep='\t')
 
-# + {"hidden": true, "cell_type": "markdown"}
 # Users with long careers:
 
-# + {"hidden": true}
 micro_p_olsBin_dt5.groupby('author').count()
 
-# + {"hidden": true}
 #author = 'a min tjoa'
 #author = 'a-nasser ansari'
 #author = 'a-xing zhu'
@@ -1163,34 +1142,26 @@ plt.xlabel('Year')
 plt.ylabel('Fitness')
 plt.legend()
 
-# + {"hidden": true, "cell_type": "markdown"}
 # Lognormal fitness distributions:
 
-# + {"hidden": true}
 etaMean_p_olsBin_dt5 = micro_p_olsBin_dt5.groupby('author').mean().sort_values('eta', ascending=False)['eta']
 etaMean_c_olsBin_dt5 = micro_c_olsBin_dt5.groupby('author').mean().sort_values('eta', ascending=False)['eta']
 
-# + {"hidden": true}
 print('mean:', np.mean(np.log10(etaMean_p_olsBin_dt5)))
 print('std:', np.std(np.log10(etaMean_p_olsBin_dt5)))
 plt.hist(np.log10(etaMean_p_olsBin_dt5))
 
-# + {"hidden": true}
 print('mean:', np.mean(np.log10(etaMean_c_olsBin_dt5)))
 print('std:', np.std(np.log10(etaMean_c_olsBin_dt5)))
 plt.hist(np.log10(etaMean_c_olsBin_dt5))
 
-# + {"hidden": true, "cell_type": "markdown"}
 # Correlation of productivity and recognition fitness:
 
-# + {"hidden": true}
 etaMean_olsBin_dt5 = pd.concat([etaMean_p_olsBin_dt5, etaMean_c_olsBin_dt5], axis=1)
 etaMean_olsBin_dt5.columns = ['p', 'c']
 
-# + {"hidden": true}
 etaMean_olsBin_dt5.dropna(inplace=True)
 
-# + {"hidden": true}
 print('corrcoef:', np.corrcoef(etaMean_olsBin_dt5['p'], etaMean_olsBin_dt5['c'])[0, 1])
 plt.scatter(etaMean_olsBin_dt5['p'], etaMean_olsBin_dt5['c'])
 plt.xscale('log')
@@ -1198,29 +1169,21 @@ plt.yscale('log')
 plt.xlabel('Mean Productivity Fitness')
 plt.ylabel('Mean Recognition Fitness')
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Variance of Fitness for Cohorts
 
-# + {"hidden": true}
 counts[counts['author'] == 'a. breton']
 
-# + {"hidden": true}
 micro_p_olsBin_dt5[micro_p_olsBin_dt5['author'] == 'a. breton']
 
-# + {"hidden": true}
 counts_fitness_p = pd.merge(left=counts, right=micro_p_olsBin_dt5, left_on=['author', 'year'], right_on=['author', 't'])
 counts_fitness_c = pd.merge(left=counts, right=micro_c_olsBin_dt5, left_on=['author', 'year'], right_on=['author', 't'])
 
-# + {"hidden": true}
 counts_fitness_p.head()
 
-# + {"hidden": true}
 counts_fitness_c.head()
 
-# + {"hidden": true, "cell_type": "markdown"}
 # Note: eta for 1975 is based on productivity in 1975-1979.
 
-# + {"hidden": true}
 counts_fitness_p_mean = counts_fitness_p.groupby(['start_year', 'career_age']).mean().reset_index()
 for start_year in [1975, 1980, 1985, 1990, 1995, 2000]: # range(1975, 2012)
     df = counts_fitness_p_mean[counts_fitness_p_mean['start_year'] == start_year]
@@ -1229,7 +1192,6 @@ for start_year in [1975, 1980, 1985, 1990, 1995, 2000]: # range(1975, 2012)
     plt.ylabel('Mean Productivity Fitness')
     plt.legend()
 
-# + {"hidden": true}
 counts_fitness_c_mean = counts_fitness_c.groupby(['start_year', 'career_age']).mean().reset_index()
 for start_year in [1975, 1980, 1985, 1990, 1995, 2000]: # range(1975, 2012)
     df = counts_fitness_c_mean[counts_fitness_c_mean['start_year'] == start_year]
@@ -1238,18 +1200,14 @@ for start_year in [1975, 1980, 1985, 1990, 1995, 2000]: # range(1975, 2012)
     plt.ylabel('Mean Recognition Fitness')
     plt.legend()
 
-# + {"hidden": true, "cell_type": "markdown"}
 # On average, scholars have high fitness at the beginning of their career. To which extent is the mean influenced by scholars with long careers? In other wordw, is high fitness in early years a predictor of career duration?
 
-# + {"hidden": true}
 AB HIER BAUSTELLE
 
-# + {"hidden": true}
 career_duration = [6, 10]
 counts_fitness_p_mean = counts_fitness_p[counts_fitness_p['career_duration'].between(career_duration[0], career_duration[1], inclusive=True)].groupby('career_age').mean().reset_index()
 max(counts_fitness_p_mean['career_age'])
 
-# + {"hidden": true}
 for career_duration in [[1, 5], [6, 10], [11, 15], [15, 20], [21, 25]]:
     counts_fitness_p_mean = counts_fitness_p[counts_fitness_p['career_duration'].between(career_duration[0], career_duration[1], inclusive=True)].groupby('career_age').mean().reset_index()
     plt.plot(counts_fitness_p_mean['career_age'], counts_fitness_p_mean['eta'], label=career_duration)
@@ -1257,15 +1215,12 @@ for career_duration in [[1, 5], [6, 10], [11, 15], [15, 20], [21, 25]]:
     plt.ylabel('Mean Productivity Fitness')
     plt.legend()
 
-# + {"hidden": true}
 career_duration = [6, 10]
 counts_fitness_c_mean = counts_fitness_c[counts_fitness_c['career_duration'].between(career_duration[0], career_duration[1], inclusive=True)].groupby('career_age').mean().reset_index()
 max(counts_fitness_c_mean['career_age'])
 
-# + {"hidden": true}
 counts_fitness_c
 
-# + {"hidden": true}
 for career_duration in [[1, 5], [6, 10], [11, 15], [15, 20], [21, 25]]:
     counts_fitness_c_mean = counts_fitness_c[counts_fitness_c['career_duration'].between(career_duration[0], career_duration[1], inclusive=True)].groupby('career_age').mean().reset_index()
     plt.plot(counts_fitness_c_mean['career_age'], counts_fitness_c_mean['eta'], label=career_duration)
