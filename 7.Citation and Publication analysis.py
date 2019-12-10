@@ -493,8 +493,8 @@ def plot_cohort_diffs_over_ages(stats, criterion, criterion_display, ext='', rem
         sig_eff_career_ages = [index - 1 for index in sig_eff_career_ages]
 
         ax3[i, j].plot(cohort["career_age"], cohort["cliffd_m_f"].values, '-D', markevery=sig_eff_career_ages)
-        ax3[i, j].set_title(f"{year} (M:{sig_male} F:{sig_female} S:{significant_effect.shape[0]})", 
-                            fontsize=12, fontweight="bold")
+        ax3[i, j].set_title(f"{year}", fontsize=12, fontweight="bold")
+                            #(M:{sig_male} F:{sig_female} S:{significant_effect.shape[0]})", 
         # ax3[i,j].grid(True)
 
         if (j < cols - 1):
@@ -520,41 +520,60 @@ cum_cit_pub_agg_first_m_f['cum_num_cit_var'] = cum_cit_pub_agg_first_m_f['cum_nu
 
 # + {"hidden": true}
 cum_cit_pub_agg_first_m_f.groupby(['start_year', 'career_age'])['cum_num_pub_var'].apply(pd.DataFrame.diff)
-# -
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Plot
 
-# +
+# + {"hidden": true}
 mwu_cliff_d_cum_pub_first = get_cohort_effect_size(cum_cit_pub_agg_first, 'cum_num_pub')
 mwu_cliff_d_cum_cit_first = get_cohort_effect_size(cum_cit_pub_agg_first, 'cum_num_cit')
 
 mwu_cliff_d_cum_pub = get_cohort_effect_size(cum_cit_pub_agg, 'cum_num_pub')
 mwu_cliff_d_cum_cit = get_cohort_effect_size(cum_cit_pub_agg, 'cum_num_cit')
 
-# +
+# + {"hidden": true}
 # TODO are mwu and delta same sided?
-# -
 
 
+# + {"hidden": true}
 def get_effect_size_stats(stats):
     effect_size_count = stats.groupby('start_year').agg({'cliffd_m_f': [lambda x: sum(x >= 0.1), lambda x: sum(x <= -0.1)],
                                                          'pvalue': lambda x: sum(x <= 0.05)})
     effect_size_count.columns = ['sig_male', 'sig_female', 'sig_mwu']
     return effect_size_count
+def get_num_larger_female(stats):
+    stats = stats[~(stats.start_year == 1970)]
+    num_fem_larger = stats.groupby('start_year').agg({'cliffd_m_f': lambda x: sum(x < 0) })
+    return num_fem_larger
 
 
-mwu_cliff_d_cum_cit[mwu_cliff_d_cum_cit.start_year == 1979]
+# + {"hidden": true}
+num_larg_female[num_larg_female.cliffd_m_f > 0].shape[0]
 
-# TODO 1970 should be removed
-mwu_cliff_d_cum_cit[mwu_cliff_d_cum_cit.cliffd_m_f <0]
 
+# + {"hidden": true}
+def report1(stats):
+    num_larg_female = get_num_larger_female(stats)
+#     print(num_larg_female)
+    print(f"num observations {num_larg_female.sum().values[0]}")
+    print(f"num cohorts with these observations {num_larg_female[num_larg_female.cliffd_m_f > 0].shape[0]}")
+report1(mwu_cliff_d_cum_cit)
+report1(mwu_cliff_d_cum_cit_first)
+# report1(mwu_cliff_d_cum_pub)
+# report1(mwu_cliff_d_cum_pub_first)
+
+# + {"hidden": true}
+mwu_cliff_d_cum_cit[mwu_cliff_d_cum_cit.start_year == 1991]
+
+# + {"hidden": true}
 dfs = [mwu_cliff_d_cum_pub, mwu_cliff_d_cum_cit, mwu_cliff_d_cum_pub_first, mwu_cliff_d_cum_cit_first]
 names = ['Publications', 'Citations', 'Pub. first', 'Cit. first']
 res = []
 res2 = []
 for df in dfs:
     effect_size_count = get_effect_size_stats(df)
-    res.append(effect_size_count[effect_size_count > 1.0].count())
+    effect_size_count = effect_size_count.drop(1970)
+    res.append(effect_size_count[effect_size_count >= 1.0].count())
     res2.append(effect_size_count.sum())
 #     print(effect_size_count)
 #     print()
@@ -562,15 +581,20 @@ num_cohorts = pd.DataFrame(res)
 num_cohorts = num_cohorts.T
 num_cohorts.columns = names
 
+# + {"hidden": true}
+# number of cohorts with sig_male, sig_female or sig_mwu showing up at least once 
 num_cohorts
 
+# + {"hidden": true}
 num_observations = pd.DataFrame(res2)
 num_observations = num_observations.T
 num_observations.columns = names
 
+# + {"hidden": true}
+# total num of significant observations
 num_observations
 
-# +
+# + {"hidden": true}
 # pubs
 plot_cohort_diffs_over_ages(mwu_cliff_d_cum_pub_first, 'mwu_cliffsd_cum_pub', 'Cumulative publications first auth', ext='_first')
 plot_cohort_diffs_over_ages(mwu_cliff_d_cum_pub, 'mwu_cliffsd_cum_pub', 'Cumulative publications')
@@ -633,21 +657,26 @@ def plot_ineq_papers_cohort(cohort_year, years_in_future=5, career_ages=[0,1,2,5
 
 # +
 # plot_ineq_papers_cohort(2000, 5, func=gini_nonzero, data=uncited_papers_network_first_auth_10)
-# -
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### All authors
 
+# + {"hidden": true}
 plot_ineq_papers_cohort(2000, 5, func=percentage_zeros)
 plot_ineq_papers_cohort(2000, 5, func=gini_nonzero)
 plot_ineq_papers_cohort(2000, 5, func=gini)
 
+# + {"hidden": true}
 plot_ineq_papers_cohort(2000, 5, func=np.mean)
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Cohort Sizes
 
+# + {"hidden": true}
 cohort_sizes = counts.groupby('start_year').agg({'author': 'nunique'})
 
 
+# + {"hidden": true}
 def plot_cohort_size_over_years():
     linewidth = 2
     fontsize = 18
@@ -675,6 +704,8 @@ def plot_cohort_size_over_years():
     fig.savefig('./fig-7-notebook/cohort_size.pdf')
 plot_cohort_size_over_years()
 
+
+# -
 
 # ## Make plot
 
@@ -751,11 +782,11 @@ def plot_array_configs(data, configs, letters, x_ends, name_ext=''):
 
 
 # + {"code_folding": []}
-def get_config(crit, crit_name):
-    config1 = [(f'{crit}_cum_num_pub', f'{crit_name} Productivity', 'Cumulative Counting'),
-               (f'{crit}_win_num_pub', f'{crit_name} Productivity', 'Window Counting'),
-                (f'{crit}_cum_num_cit', f'{crit_name} Recognition', 'Cumulative Counting'),
-                (f'{crit}_win_num_cit', f'{crit_name} Recognition', 'Window Counting')]
+def get_config(crit, crit_name, size=""):
+    config1 = [(f'{crit}_cum_num_pub', f'{crit_name} Productivity', f'Cumulative Counting {size}'),
+               (f'{crit}_win_num_pub', f'{crit_name} Productivity', f'Window Counting {size}'),
+                (f'{crit}_cum_num_cit', f'{crit_name} Recognition', f'Cumulative Counting {size}'),
+                (f'{crit}_win_num_cit', f'{crit_name} Recognition', f'Window Counting {size}')]
     return config1
 letters1 = ['A', 'B', 'C', 'D']
 letters2 = ['E', 'F', 'G', 'H']
@@ -834,60 +865,78 @@ def plot_for_latex(citations_window, citations_window_first, x_ends):
 
 cohort_counts_gini_first = agg_data_df(citations_window_first, gini, 'gini')
 
-plot_array_configs(cohort_counts_gini_first, get_config('gini', 'Gini'), letters3, x_ends, name_ext='_first')
+citations_window_first_size = citations_window_first['author'].nunique()
 
+plot_array_configs(cohort_counts_gini_first, get_config('gini', 'Gini', citations_window_first_size), letters3, x_ends, name_ext='_first')
+
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Cumulative and time windows
 
+# + {"hidden": true}
 cohort_counts_gini = agg_data_df(citations_window, gini, 'gini')
 
+# + {"hidden": true}
 plot_array_configs(cohort_counts_gini, get_config('gini', 'Gini'), letters1, x_ends)
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Non zero
 
+# + {"hidden": true}
 cohort_counts_gini_nonzero = agg_data_df(citations_window, gini_nonzero, 'gini_nonzero')
 
+# + {"hidden": true}
 plot_array_configs(cohort_counts_gini_nonzero, get_config('gini_nonzero', 'Gini$_{>0}$'), letters1, x_ends)
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Inequality of early vs later work
 
-# +
+# + {"hidden": true}
 # publish_years = [[0,3], [3,6], [6,9], [0,1], [3,4], [6,7]]
 # first_year = 0
 # publish_years = [[i, i+1] for i in range(first_year,15)]
 # author_gini_early_work = agg_data_early_late(citations_window, gini, publish_years)
 
-# +
+# + {"hidden": true}
 # plot_heatmap(author_gini_early_work, publish_years, '_cum')
 
-# +
+# + {"hidden": true}
 # plot_heatmap(author_gini_early_work, publish_years, '')
 
-# +
+# + {"hidden": true}
 # years_list = [[0,1], [3,4], [6,7]]
 # plot_early_late_work(author_gini_early_work, years_list)
-# -
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## HHI
 
+# + {"hidden": true}
 cohort_counts_hhi = agg_data_df(citations_window, hhi, 'hhi')
 
+# + {"hidden": true}
 plot_array_configs(cohort_counts_hhi, get_config('hhi', 'HHI'), letters1, x_ends)
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Percentage zeros
 
+# + {"hidden": true}
 cohort_counts_pzero = agg_data_df(citations_window, percentage_zeros, 'pzero')
 
+# + {"hidden": true}
 plot_array_configs(cohort_counts_pzero, get_config('pzero', '%0'), letters1, x_ends)
+# -
 
 # ## Remove dropouts
 
 citations_window_stayed = citations_window[citations_window.dropped_after_10 == False]
 
+citations_window_stayed_size = citations_window_stayed['author'].nunique()
+
 # ### Gini
 
 cohort_counts_stayed_gini = agg_data_df(citations_window_stayed, gini, 'gini')
 
-plot_array_configs(cohort_counts_stayed_gini, get_config('gini', 'Gini'), letters2, x_ends, name_ext='_stay')
+plot_array_configs(cohort_counts_stayed_gini, get_config('gini', 'Gini', citations_window_stayed_size), 
+                   letters2, x_ends, name_ext='_stay')
 
 # ### P zero
 

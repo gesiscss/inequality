@@ -75,7 +75,7 @@ print(credible_authors.shape)
 print(COHORT_START_YEARS)
 
 # + {"pycharm": {"is_executing": false}}
-credible_authors.columns
+credible_authors.columns.values
 
 # + {"pycharm": {"is_executing": false}}
 # TODO: move this to 0. also check it 
@@ -465,7 +465,7 @@ def results_to_latex(results, name):
     ltx_file.close()
 
 
-# + {"code_folding": [0, 10, 20, 30, 40, 50, 62, 70, 116]}
+# + {"code_folding": [0, 10, 20, 30, 40, 50, 62, 116]}
 def get_baseline_vars():
     INCLUDE_PROD = 0
     INCLUDE_SOCIAL = 0
@@ -753,6 +753,8 @@ plot_metric_over_cohorts(res_cohort_full_cita, 'r2', 'R squared', 'Citation incr
 
 # ## Aggregated Elastic Net Models
 # We test the effect of different groups of features (human capital, social capital and gender) on success/dropout
+
+dv_hindex_incr
 
 h_ind_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
 results_to_latex(h_ind_agg_all, 'agg_hindex')

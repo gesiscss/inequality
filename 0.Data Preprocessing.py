@@ -24,10 +24,13 @@ from calculate import gini, h_index
 # Specify how long is the early career. Impacts which papers we take into account for early productivity and quality
 EARLY_CAREER_LEN = 3
 EARLY_CAREER_LEN_LIST = [3, 5, 7, 9, 11, 12]
+EARLY_CAREER_LEN_LIST = [3]
 # For early career work, when do we stop counting citations. Impacts recognition
 RECOGNITION_CUT_OFF_LIST = [3, 5, 7, 9, 11, 12]
+RECOGNITION_CUT_OFF_LIST = [3]
 # Success after 15 years. Impacts when we stop counting citations
 SUCCESS_CUTOFF = 15
+SUCCESS_CUTOFF_LIST = [10, 15]
 # Length of observed career for dropouts
 # (1-3), middle career (4-9), late career (10-15)
 
@@ -36,6 +39,7 @@ SUCCESS_CUTOFF = 15
 CAREER_LENGTH_DROPOUTS_LIST = [(0, 15)]
 # CAREER_LENGTH_DROPOUTS = 15
 INACTIVE_TIME_DROPOUTS = 10
+INACTIVE_TIME_DROPOUTS_LIST = 5
 
 # Specify the first and last year we consider in our analysis
 START_YEAR = 1970

@@ -150,6 +150,3 @@ def h_index(citations):
             return i
         h_ind = i + 1
     return h_ind
-
-
-
