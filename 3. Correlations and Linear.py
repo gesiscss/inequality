@@ -76,69 +76,6 @@ print(COHORT_START_YEARS)
 
 # + {"pycharm": {"is_executing": false}}
 credible_authors.columns.values
-
-# + {"pycharm": {"is_executing": false}}
-# TODO: move this to 0. also check it 
-EARLY_CAREER_LEN_LIST_EXT = [3,5,7,9,11,12]
-RECOGNITION_CUT_OFF_LIST_EXT = [3,5,7,9,11,12]
-# EARLY_CAREER_LEN_LIST_EXT = [3]
-# RECOGNITION_CUT_OFF_LIST_EXT = [3]
-
-for year in EARLY_CAREER_LEN_LIST_EXT:
-    credible_authors[f'citation_increase_15_{year}'] = credible_authors['succ_after_15y'] - credible_authors[
-        f'early_career_recognition_EC{year}_RC{year}']
-    credible_authors[f'h_index_increase_{year}_{EARLY_CAREER}'] = credible_authors[
-        f'h-index_{year}'] - credible_authors[f'h-index_{EARLY_CAREER}']
-    credible_authors[f'h_index_increase_15_{EARLY_CAREER}'] = credible_authors[
-        f'h-index_15'] - credible_authors[f'h-index_{EARLY_CAREER}']
-# -
-
-for year in EARLY_CAREER_LEN_LIST_EXT[1:]:
-    credible_authors[f'citation_increase_{year}_{EARLY_CAREER}'] = credible_authors[
-        f'early_career_recognition_EC{year}_RC{year}'] - credible_authors[f'early_career_recognition_EC{EARLY_CAREER}_RC{EARLY_CAREER}']
-    credible_authors[f'h_index_increase_{year}_{EARLY_CAREER}'] = credible_authors[f'h-index_{year}'] - credible_authors[f'h-index_{EARLY_CAREER}']
-
-# ## Correlations
-
-# + {"pycharm": {"is_executing": false}}
-cols = ['succ_after_15y', 'h_index_increase_15_3', 'citation_increase_15_3', 'max_absence-0-15', 
-        'early_career_prod_3', 'early_career_degree_3', 'early_career_coauthor_max_hindex_12', 
-        'early_career_recognition_EC3_RC3', 'early_career_qual_12']
-
-col_names_short = ['succ', 'hindex_incr', 'cit_incr', 'max_abs', 
-        'prod_3', 'degree_3', 'maxh_3', 
-        'rec_3', 'qual_3']
-
-
-# + {"pycharm": {"is_executing": false}}
-cor_qual = credible_authors[cols].corr(method='kendall')
-
-# + {"pycharm": {"is_executing": false}}
-cor_qual
-#cor_qual['succ_after_15y'].sort_values()
-# -
-
-fig = plt.figure(figsize=(20, 10))
-ax = fig.add_subplot(111)
-cax = ax.matshow(cor_qual, vmin=-1, vmax=1)
-fig.colorbar(cax)
-ticks = np.arange(0,9,1)
-ax.set_xticks(ticks)
-ax.set_yticks(ticks)
-ax.set_xticklabels(col_names_short, rotation=45)
-ax.set_yticklabels(col_names_short)
-plt.show()
-
-
-# +
-#cor = credible_authors.corr()
-
-# +
-#cor_qual[f'h_index_increase_15_{EARLY_CAREER}'].sort_values()
-
-# +
-# sns.heatmap(cor, center=0,
-#             square=True, linewidths=.5, cbar_kws={"shrink": .5})
 # -
 
 # ## Linear reg
@@ -239,10 +176,12 @@ dfs[0].join(dfs[1:])
 
 # ### Elastic net
 
+# +
 # EARLY_CAREER = EARLY_CAREER_LEN_LIST[0]
 # RECOGNITION_CUT = RECOGNITION_CUT_OFF_LIST[0]
-EARLY_CAREER_LEN_LIST = [3,5,7,9,11,12]
-RECOGNITION_CUT_OFF_LIST = [3,5,7,9,11,12]
+# EARLY_CAREER_LEN_LIST = [3,5,7,9,11,12]
+# RECOGNITION_CUT_OFF_LIST = [3,5,7,9,11,12]
+# -
 
 from sklearn.preprocessing import StandardScaler,RobustScaler, MinMaxScaler
 from sklearn.metrics import accuracy_score
@@ -596,18 +535,17 @@ def get_report_from_table(result_table):
     return pd.DataFrame(report).set_index('feature')
 
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# -
+
 # ### Baseline Model
 
-# + {"hidden": true}
 res_cohort_base_hind = elastic_cohort(credible_authors, get_baseline_vars, EARLY_CAREER, RECOGNITION_CUT,
                                       dv_hindex_incr)
 # res_cohort_base_cita = elastic_cohort(credible_authors, get_baseline_vars, EARLY_CAREER, RECOGNITION_CUT,
 #                                       dv_citations_incr)
 # res_cohort_base_drop = elastic_cohort(get_baseline_vars, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
 
-# + {"hidden": true}
-# res_cohort_base_hind
+res_cohort_base_hind
 
 # + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Human Capital Model
@@ -691,6 +629,12 @@ get_report_from_table(res_cohort_full_drop)
 
 get_report_from_table(res_cohort_full_hind)
 
+res_cohort_full_hind
+
+res_cohort_full_hind = elastic_cohort(credible_authors, get_full_vars, EARLY_CAREER, RECOGNITION_CUT, 'h_index_increase_10_3')
+
+res_cohort_full_hind
+
 # + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Stayed
 
@@ -754,8 +698,9 @@ plot_metric_over_cohorts(res_cohort_full_cita, 'r2', 'R squared', 'Citation incr
 # ## Aggregated Elastic Net Models
 # We test the effect of different groups of features (human capital, social capital and gender) on success/dropout
 
-dv_hindex_incr
 
+
+dv_hindex_incr = 'h_index_increase_15_3'
 h_ind_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
 results_to_latex(h_ind_agg_all, 'agg_hindex')
 h_ind_agg_all
@@ -1261,44 +1206,53 @@ for param in params_rfecv:
 
 # + {"hidden": true}
 selected_f
-# -
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Null experiment
 
+# + {"hidden": true}
 citations_per_year = pd.read_csv('derived-data/paper-citation-count.csv', header=None, names=['pub_id', 'cit_count'])
 
+# + {"hidden": true}
 publications = pd.read_csv('derived-data/author-publications.csv')
 
-# +
+# + {"hidden": true}
 # publications.sort_values(by='author').head()
-# -
 
+# + {"hidden": true}
 # remove authors by career_len, and add start year
 publications = publications.merge(credible_authors[['author', 'start_year']], on='author')
 
+# + {"hidden": true}
 publications = publications[publications.year <= publications.year + MAX_CAREER_LEN]
 
-# +
+# + {"hidden": true}
 # citations_per_year.head()
-# -
 
+# + {"hidden": true}
 publications['pub_id'] = shuffle(publications['pub_id']).reset_index(drop=True)
 
-# +
+# + {"hidden": true}
 # publications.sort_values(by='author').head()
-# -
 
+# + {"hidden": true}
 publications = publications.merge(citations_per_year, on='pub_id', how='left')
 publications = publications.fillna(0)
 
+# + {"hidden": true}
 publications.sort_values(by='author').head(20)
 
+# + {"hidden": true}
 credible_authors[credible_authors.author == "a min tjoa"]['succ_after_15y']
 
+# + {"hidden": true}
 credible_authors.set_index('author', inplace=True)
 
+# + {"hidden": true}
 credible_authors['succ_shuffled'] = publications.groupby('author')['cit_count'].sum()
 
+# + {"hidden": true}
 credible_authors[['succ_shuffled', 'succ_after_15y']].head()
 
+# + {"hidden": true}
 credible_authors.columns

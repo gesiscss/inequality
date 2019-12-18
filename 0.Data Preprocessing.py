@@ -22,21 +22,20 @@ from calculate import gini, h_index
 
 # +
 # Specify how long is the early career. Impacts which papers we take into account for early productivity and quality
-EARLY_CAREER_LEN = 3
+# EARLY_CAREER_LEN = 3
 # EARLY_CAREER_LEN_LIST = [3, 5, 7, 9, 11, 12]
 EARLY_CAREER_LEN_LIST = [3]
 # For early career work, when do we stop counting citations. Impacts recognition
 # RECOGNITION_CUT_OFF_LIST = [3, 5, 7, 9, 11, 12]
 RECOGNITION_CUT_OFF_LIST = [3]
 # Success after 15 years. Impacts when we stop counting citations
-SUCCESS_CUTOFF = 15
+# SUCCESS_CUTOFF = 15
 SUCCESS_CUTOFF_LIST = [10, 15]
 # Length of observed career for dropouts
 # (1-3), middle career (4-9), late career (10-15)
-
 CAREER_LENGTH_DROPOUTS_LIST = [(0, 15)]
 # CAREER_LENGTH_DROPOUTS = 15
-INACTIVE_TIME_DROPOUTS = 10
+# INACTIVE_TIME_DROPOUTS = 10
 INACTIVE_TIME_DROPOUTS_LIST = [5,10]
 
 # Specify the first and last year we consider in our analysis
@@ -53,13 +52,14 @@ def get_start_years(START_YEAR, LAST_START_YEAR):
     return start_years
 
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## 1. Load data
 
-# +
+# + {"hidden": true}
 # cheat load
 # credible_authors = pd.read_csv('derived-data/authors-scientific-extended.csv')
-# -
 
+# + {"hidden": true}
 # read csv raw data
 # publications
 authorPublicationData = pd.read_csv('./data/author_publications_2017_asiansAsNone.txt')
@@ -70,7 +70,7 @@ arxiv_pubid = pd.read_csv('derived-data/arxiv_pubid_2017.csv', header=None, name
 # venue data
 publication_venues_rank = pd.read_csv('derived-data/publication-venues-rank.csv')
 
-# +
+# + {"hidden": true}
 # remove duplicates and remove arxiv
 print(authorPublicationData.shape)
 authorPublicationData.drop_duplicates(subset=['author', 'pub_id'], inplace=True)
@@ -84,15 +84,16 @@ print(authorCitationsData.shape)
 authorCitationsData = authorCitationsData.loc[(~authorCitationsData.id1.isin(arxiv_pubid['pub_id']))]
 authorCitationsData = authorCitationsData.loc[(~authorCitationsData.id2.isin(arxiv_pubid['pub_id']))]
 print(authorCitationsData.shape)
-# -
 
+# + {"hidden": true}
 print('Authors#      - ', authorPublicationData['author'].nunique())
 print('Years#        - ', authorPublicationData['year'].nunique())
 print('Publications# - ', authorPublicationData['pub_id'].nunique())
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## 2. Career length and gender
 
-# +
+# + {"hidden": true}
 groupByAuthor = authorPublicationData.groupby(['author'])
 
 groupByAuthorMinYearData = groupByAuthor['year'].min()
@@ -112,16 +113,18 @@ authorGroupedData = authorGroupedData.dropna(how='any')
 print("After droping na -          ", authorGroupedData.shape)
 
 authorGroupedData.head()
-# -
 
+# + {"hidden": true}
 # Adding 1 here to have career length be at least one. So 3 years career means year1, year2, year3.
 authorGroupedData["career_length"] = authorGroupedData['end_year'] - authorGroupedData['start_year'] + 1
 
+# + {"hidden": true}
 credible_authors = authorGroupedData
 
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ### Gender
 
-# +
+# + {"hidden": true}
 gender = pd.read_csv('./data/name_gender_2017_asiansAsNone_nodup.txt')
 credible_authors = credible_authors.merge(gender, left_on='author', right_on='name', how='left')
 credible_authors.drop('name', axis=1, inplace=True)
@@ -130,27 +133,33 @@ print(credible_authors.gender.value_counts())
 gender.head()
 
 
-# -
-
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ### Save filtered data about authors, and cleaned publications
 
+# + {"hidden": true}
 def filter_cred_authors(START_YEAR, LAST_START_YEAR):
     return credible_authors[
         (credible_authors.start_year >= START_YEAR) & (credible_authors.start_year <= LAST_START_YEAR)]
 
 
+# + {"hidden": true}
 filter_cred_authors(START_YEAR, LAST_START_YEAR).to_csv('derived-data/authors-scientific.csv', index=False,
                                                         encoding='utf-8')
 credible_authors.head()
 
+# + {"hidden": true}
 authorPublicationData.to_csv('derived-data/author-publications.csv', index=False)
 
+# + {"hidden": true}
 authorPublicationData.shape
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## 3. Prepare DFs 
 
+# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
 # ### DF1 - Publications and Citations, no uncited papers
 
+# + {"hidden": true}
 # For every author and paper => every citation to the paper
 # Doesnt contain uncited papers
 # Contains multiple authors per paper
@@ -161,51 +170,60 @@ publications_citations_no_uncited = authorPublicationData.merge(authorCitationsD
 publications_citations_no_uncited = publications_citations_no_uncited.merge(credible_authors[['author', 'start_year']],
                                                                             on='author', how='inner')
 
+# + {"hidden": true}
 # remove cited before published
 publications_citations_no_uncited = publications_citations_no_uncited[
     publications_citations_no_uncited.year_pub <= publications_citations_no_uncited.year_cit]
 
+# + {"hidden": true}
 # remove duplicate authors
 # no uncited papers
 paper_paper_citations = publications_citations_no_uncited[['id1', 'id2', 'year_pub', 'year_cit']]
 paper_paper_citations = paper_paper_citations.drop_duplicates(subset=['id1', 'id2'])
 paper_total_citations = paper_paper_citations.groupby('id2')['id1'].count()
 
+# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
 # ### DF2 - Publications with uncited papers
 
+# + {"hidden": true}
 # Contains uncited papers
 # Good for early career publication related analysis
 publications_start_year = authorPublicationData.merge(credible_authors[['author', 'start_year']], on='author',
                                                       how='inner')
 
+# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
 # ### DF3 - Author order in publications
 
-# + {"pycharm": {"name": "#%%\n"}}
+# + {"pycharm": {"name": "#%%\n"}, "hidden": true}
 publications_first_author = pd.read_csv('derived-data/publication_authors_order_2017.csv')
 
-# + {"pycharm": {"name": "#%%\n"}}
+# + {"pycharm": {"name": "#%%\n"}, "hidden": true}
 publications_first_author = publications_first_author.merge(credible_authors[['author', 'start_year']],
                                                             left_on='first_author',
                                                             right_on='author', how='left')
 publications_first_author = publications_first_author.drop('first_author', axis='columns')
-# -
 
+# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
 # ### Author yearly citations and publications
 
+# + {"hidden": true}
 # number of citations an author receives per year
 author_yearly_citations = publications_citations_no_uncited.groupby(['author', 'year_cit'])['id1'].count()
 author_yearly_citations = author_yearly_citations.reset_index()
 author_yearly_citations = author_yearly_citations.rename(columns={'id1': 'num_cit', 'year_cit': 'year'})
 author_yearly_citations[['author', 'year', 'num_cit']].to_csv('derived-data/authors-perYear-citations.csv', index=False)
 
+# + {"hidden": true}
 author_yearly_publications = authorPublicationData.groupby(['author', 'year'])['pub_id'].count().reset_index()
 author_yearly_publications = author_yearly_publications.rename(columns={'pub_id': 'num_pub'})
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Publication and citation based analysis - DF1
 
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ### 1: Early quality
 
-# + {"pycharm": {"name": "#%%\n"}}
+# + {"pycharm": {"name": "#%%\n"}, "hidden": true}
 for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     combined_early_quality = publications_citations_no_uncited[
         (publications_citations_no_uncited.year_pub < publications_citations_no_uncited.start_year + EARLY_CAREER) &
@@ -230,11 +248,11 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
         f'early_career_qual_{EARLY_CAREER}'].fillna(0)
     credible_authors[f'early_career_qual_first_{EARLY_CAREER}'] = credible_authors[
         f'early_career_qual_first_{EARLY_CAREER}'].fillna(0)
-# -
 
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ### 2: Early recognition
 
-# + {"pycharm": {"name": "#%%\n"}}
+# + {"pycharm": {"name": "#%%\n"}, "hidden": true}
 for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     for RECOGNITION_CUT in RECOGNITION_CUT_OFF_LIST:
         if RECOGNITION_CUT != EARLY_CAREER: continue
@@ -247,11 +265,11 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
         early_career_recognition = early_career_recognition.reset_index()
         credible_authors = credible_authors.merge(early_career_recognition, on='author', how='left')
         credible_authors[col_name] = credible_authors[col_name].fillna(0)
-# -
 
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ### 3: Citation count after X years
 
-# + {"pycharm": {"name": "#%%\n"}}
+# + {"pycharm": {"name": "#%%\n"}, "hidden": true}
 for SUCCESS_CUTOFF in [*EARLY_CAREER_LEN_LIST, *SUCCESS_CUTOFF_LIST]:
     publications_citations_before_cutoff = publications_citations_no_uncited[
         publications_citations_no_uncited.year_cit < publications_citations_no_uncited.start_year + SUCCESS_CUTOFF]
@@ -261,10 +279,11 @@ for SUCCESS_CUTOFF in [*EARLY_CAREER_LEN_LIST, *SUCCESS_CUTOFF_LIST]:
     citations_per_author = citations_per_author.reset_index()
     credible_authors = credible_authors.merge(citations_per_author, on='author', how='left')
     credible_authors[f'citation_count_{SUCCESS_CUTOFF}'] = credible_authors[f'citation_count_{SUCCESS_CUTOFF}'].fillna(0)
-# -
 
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ### 4: H index
 
+# + {"hidden": true}
 for YEAR in [*EARLY_CAREER_LEN_LIST, *SUCCESS_CUTOFF_LIST]:
     combined_h_index = publications_citations_no_uncited[
         publications_citations_no_uncited.year_cit < publications_citations_no_uncited.start_year + YEAR]
@@ -277,8 +296,10 @@ for YEAR in [*EARLY_CAREER_LEN_LIST, *SUCCESS_CUTOFF_LIST]:
     credible_authors = credible_authors.merge(combined_h_index.reset_index(), on='author', how='left')
     credible_authors[f'h-index_{YEAR}'] = credible_authors[f'h-index_{YEAR}'].fillna(0)
 
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ### 5: Early Coauthor max h-index
 
+# + {"hidden": true}
 """for each paper in EC, calculate the h-index of all its authors
     This requires extra work
     We want to calculate the h index of coauthors at the time of publishing the paper
@@ -292,6 +313,7 @@ for YEAR in [*EARLY_CAREER_LEN_LIST, *SUCCESS_CUTOFF_LIST]:
 """
 
 
+# + {"hidden": true}
 def author_h_index_in_year_X(authors, year_x):
     #     print(year_x)
     combined_h = publications_citations_no_uncited[
@@ -304,6 +326,7 @@ def author_h_index_in_year_X(authors, year_x):
     return author_hind_at_year
 
 
+# + {"hidden": true}
 def author_h_index(author, year_x):
     combined_h = publications_citations_no_uncited[
         (publications_citations_no_uncited.year_cit < year_x) &
@@ -312,10 +335,12 @@ def author_h_index(author, year_x):
     return h_index(citations_count_list)
 
 
+# + {"hidden": true}
 # # %%time
 papers_authors = publications_citations_no_uncited[['author', 'year_pub']].drop_duplicates(
     subset=['author', 'year_pub'])
 
+# + {"hidden": true}
 # # %%time
 all_authors_hind = pd.DataFrame(columns=['author', 'h-index', 'year_pub'])
 all_authors_hind['year_pub'] = all_authors_hind['year_pub'].astype('int64')
@@ -324,10 +349,13 @@ for year_x in papers_authors.year_pub.unique():
     author_hind_at_year = author_h_index_in_year_X(authors, year_x)
     all_authors_hind = all_authors_hind.append(author_hind_at_year)
 
+# + {"hidden": true}
 papers_authors = papers_authors.merge(all_authors_hind, how='left')
 
+# + {"hidden": true}
 papers_authors['h-index'] = papers_authors['h-index'].fillna(0)
 
+# + {"hidden": true}
 for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     combined_early_coauthor = publications_start_year[
         (publications_start_year.year < publications_start_year.start_year + EARLY_CAREER)]
@@ -359,57 +387,70 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     credible_authors[f"early_career_coauthor_max_hindex_{EARLY_CAREER}"] = credible_authors[
         f"early_career_coauthor_max_hindex_{EARLY_CAREER}"].fillna(0)
 
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ### 6: Success increase- hindex, citations
 
+# + {"hidden": true}
 for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     for SUCCESS_CUTOFF in SUCCESS_CUTOFF_LIST:
         credible_authors[f'citation_increase_{SUCCESS_CUTOFF}_{EARLY_CAREER}'] = credible_authors[f'citation_count_{SUCCESS_CUTOFF}'] - credible_authors[f'citation_count_{EARLY_CAREER}']
         credible_authors[f'h_index_increase_{SUCCESS_CUTOFF}_{EARLY_CAREER}'] = credible_authors[f'h-index_{SUCCESS_CUTOFF}'] - credible_authors[f'h-index_{EARLY_CAREER}']
 
 
+# -
+
 # ## Publication based analysis - DF2
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### 1: Label authors that drop out
 
+# + {"hidden": true}
 def list_append(lst, item):
     lst.append(item)
     return lst
 
 
+# + {"hidden": true}
 def append_new_only(lst, item):
     if item not in lst:
         lst.append(item)
     return lst
 
 
-# + {"pycharm": {"name": "#%%\n"}}
-def get_author_avg_max_absence(CAREER_LENGTH_DROPOUTS_LIST, INACTIVE_TIME_DROPOUTS, credible_authors):
+# + {"pycharm": {"name": "#%%\n"}, "hidden": true}
+def get_author_avg_max_absence(CAREER_LENGTH_DROPOUTS_LIST, credible_authors):
     for start, end in CAREER_LENGTH_DROPOUTS_LIST:
         pubs_grouped = publications_start_year[
             (publications_start_year.year >= publications_start_year.start_year + start) &
-            (publications_start_year.year <= publications_start_year.start_year + end)]
+            (publications_start_year.year < publications_start_year.start_year + end)]
         # for every 2 consecutive years the author has published find a difference (absence time)
-        # we artificially add one value: career start + 15, as a limiter of our observation window
+        # we artificially add one value: career start + career end (0+15), as a limiter of our observation window
         # we add the limiter only if the author did not publish in this year
         pubs_grouped = pubs_grouped.groupby('author').agg({'year': lambda x: sorted(list(x))})
-        pubs_grouped['year'] = pubs_grouped['year'].apply(lambda x: sorted(append_new_only(x, x[0] + 15)))
+        pubs_grouped['year'] = pubs_grouped['year'].apply(lambda x: sorted(append_new_only(x, x[0] + end)))
+        # calculate consecutive differences - np.diff
         pubs_grouped['absence_list'] = pubs_grouped['year'].apply(np.diff)
         pubs_grouped[f'max_absence_{start}_{end}'] = pubs_grouped['absence_list'].apply(max)
         pubs_grouped[f'avg_absence_{start}_{end}'] = pubs_grouped['absence_list'].apply(np.mean)
         pubs_grouped.reset_index(inplace=True)
 
-        credible_authors = credible_authors.merge(pubs_grouped[
-                                                      ['author', f'max_absence_{start}_{end}',
-                                                       f'avg_absence_{start}_{end}']], on='author', how='left')
-        credible_authors[f'dropped_after_{INACTIVE_TIME_DROPOUTS}'] = credible_authors[
-            f'max_absence_{start}_{end}'].apply(lambda x: False if x < INACTIVE_TIME_DROPOUTS else True)
+        credible_authors = credible_authors.merge(
+            pubs_grouped[['author', f'max_absence_{start}_{end}', f'avg_absence_{start}_{end}']], on='author', how='left')
+    return credible_authors
 
-get_author_avg_max_absence(CAREER_LENGTH_DROPOUTS_LIST, INACTIVE_TIME_DROPOUTS, credible_authors)
-# -
+def get_author_dropped_after(INACTIVE_TIME_DROPOUTS_LIST, credible_authors, start=0, end=15):
+    for INACTIVE_TIME_DROPOUTS in INACTIVE_TIME_DROPOUTS_LIST:
+        credible_authors[f'dropped_after_{INACTIVE_TIME_DROPOUTS}'] = credible_authors[f'max_absence_{start}_{end}'].apply(
+            lambda x: True if x >= INACTIVE_TIME_DROPOUTS else False)
+    return credible_authors
 
+credible_authors = get_author_avg_max_absence(CAREER_LENGTH_DROPOUTS_LIST, credible_authors)
+credible_authors = get_author_dropped_after(INACTIVE_TIME_DROPOUTS_LIST, credible_authors)
+
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### 2: Team size
 
-# + {"pycharm": {"name": "#%%\n"}}
+# + {"pycharm": {"name": "#%%\n"}, "hidden": true}
 for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     publications_early = publications_start_year[(
             publications_start_year.year < publications_start_year.start_year + EARLY_CAREER)]
@@ -425,11 +466,11 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
 
     credible_authors = credible_authors.merge(team_size_median, on='author', how='left')
     credible_authors = credible_authors.merge(team_size_mean, on='author', how='left')
-# -
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### 3: Early degree
 
-# + {"pycharm": {"name": "#%%\n"}}
+# + {"pycharm": {"name": "#%%\n"}, "hidden": true}
 for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     combined_early_degree = publications_start_year[
         (publications_start_year.year < publications_start_year.start_year + EARLY_CAREER)]
@@ -451,10 +492,11 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     credible_authors = credible_authors.merge(combined_early_degree, on='author', how='left')
     credible_authors[f"early_career_degree_{EARLY_CAREER}"] = credible_authors[
         f"early_career_degree_{EARLY_CAREER}"].fillna(0)
-# -
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### 4: Early productivity
 
+# + {"hidden": true}
 # # %%time
 for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     early_career_publications_reduced = publications_start_year[publications_start_year.year <
@@ -464,6 +506,7 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     early_career_publications_ = early_career_publications_.rename({'pub_id': f'early_career_prod_{EARLY_CAREER}'},
                                                                    axis='columns')
     credible_authors = credible_authors.merge(early_career_publications_, on='author', how='left')
+# -
 
 # ### 5: Venues
 
@@ -501,10 +544,10 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
 
     # credible_authors[f'ranking_{EARLY_CAREER}'] = credible_authors[f'ranking_{EARLY_CAREER}'].fillna(0)
 
-# + {"pycharm": {"name": "#%% md\n"}, "cell_type": "markdown"}
+# + {"pycharm": {"name": "#%% md\n"}, "heading_collapsed": true, "cell_type": "markdown"}
 # ## Number of early publications - first author (DF3)
 
-# + {"pycharm": {"name": "#%%\n"}}
+# + {"pycharm": {"name": "#%%\n"}, "hidden": true}
 # number of first author publications
 for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     publications_first_author_early = publications_first_author[
@@ -638,11 +681,13 @@ counts_df_5 = make_counts_file(base_df, publications_citations_no_uncited, WINDO
 counts_df_first_5 = make_counts_file(base_df_first, publications_citations_no_uncited_first, WINDOW_SIZE, file_ext='_first')
 #TODO write tests for counts
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Deprecated
 
+# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
 # ### Early, mid and late papers analysis - citations
 
-# + {"code_folding": []}
+# + {"code_folding": [], "hidden": true}
 # TODO Delete
 # def add_fine_grained_citation_counts(counts):
 #     # publish_years = [[0,3], [3,6], [6,9], [0,1], [3,4], [6,7]]
@@ -658,11 +703,11 @@ counts_df_first_5 = make_counts_file(base_df_first, publications_citations_no_un
 #     for start, end in publish_years:
 #         counts[f'ec_cit_{start}_{end}_cum'] = counts.sort_values(['author', 'career_age']).groupby('author')[
 #             f'ec_cit_{start}_{end}'].transform(pd.Series.cumsum)
-# -
 
+# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
 # ### Early Coauthor max citations - deprecated
 
-# +
+# + {"hidden": true}
 # for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
 #     combined_early_coauthor = combined_df[(combined_df.year_pub < combined_df.start_year + EARLY_CAREER)]
 
@@ -685,16 +730,19 @@ counts_df_first_5 = make_counts_file(base_df_first, publications_citations_no_un
 
 #     credible_authors = credible_authors.merge(combined_early_coauthor, on='author', how='left')
 #     credible_authors[f"early_career_coauthor_max_cit_{EARLY_CAREER}"] = credible_authors[f"early_career_coauthor_max_cit_{EARLY_CAREER}"].fillna(0)
-# -
 
+# + {"hidden": true}
 # drop
 def drop_list_cols(drop_list):
     credible_authors.drop(drop_list, axis=1, inplace=True)
 
 
+# + {"hidden": true}
 def drop_col(df, cols):
     df.drop(cols, axis='columns', inplace=True)
 
+
+# -
 
 # ## Save
 
