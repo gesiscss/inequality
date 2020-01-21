@@ -506,11 +506,11 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
     early_career_publications_ = early_career_publications_.rename({'pub_id': f'early_career_prod_{EARLY_CAREER}'},
                                                                    axis='columns')
     credible_authors = credible_authors.merge(early_career_publications_, on='author', how='left')
-# -
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### 5: Venues
 
-# +
+# + {"hidden": true}
 # TODO including the MAX and MIN values as missing. Check this. also what to do with ranking?
 early_career_venues = publications_start_year.merge(publication_venues_rank[[
     'pub_id', 'h5_index', 'ranking', 'deciles', 'quantiles']], on='pub_id', how='inner')
@@ -684,7 +684,7 @@ counts_df_first_5 = make_counts_file(base_df_first, publications_citations_no_un
 # + {"heading_collapsed": true, "cell_type": "markdown"}
 # ## Deprecated
 
-# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ### Early, mid and late papers analysis - citations
 
 # + {"code_folding": [], "hidden": true}
@@ -704,7 +704,7 @@ counts_df_first_5 = make_counts_file(base_df_first, publications_citations_no_un
 #         counts[f'ec_cit_{start}_{end}_cum'] = counts.sort_values(['author', 'career_age']).groupby('author')[
 #             f'ec_cit_{start}_{end}'].transform(pd.Series.cumsum)
 
-# + {"hidden": true, "heading_collapsed": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # ### Early Coauthor max citations - deprecated
 
 # + {"hidden": true}
