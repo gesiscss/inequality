@@ -337,6 +337,16 @@ def run_elastic_net(X, y):
     else:
         cv_dict = cross_validate(ElasticNetCV(cv=10), X, y, scoring=['r2', 'neg_mean_squared_error'], 
                                  cv=10, return_estimator=True, return_train_score=False)
+        ######
+#         file = open('test.txt', 'w')
+#         pred = cv_dict['estimator'][0]
+#         res = pred.predict(X)
+#         file.write(np.array2string(res))
+#         file.write('\n')
+#         file.write(str(y))
+#         file.close
+#         return
+        ######
         net_coef = pd.DataFrame([es.coef_ for es in cv_dict['estimator']], columns=X.columns)
         score = np.mean(cv_dict['test_r2'])
         score2 = np.mean(cv_dict['test_neg_mean_squared_error'])
@@ -404,7 +414,7 @@ def results_to_latex(results, name):
     ltx_file.close()
 
 
-# + {"code_folding": [0, 10, 20, 30, 40, 50, 62, 116]}
+# + {"code_folding": [0, 10, 20, 30, 40, 50, 62, 70, 78, 116]}
 def get_baseline_vars():
     INCLUDE_PROD = 0
     INCLUDE_SOCIAL = 0
@@ -535,16 +545,17 @@ def get_report_from_table(result_table):
     return pd.DataFrame(report).set_index('feature')
 
 
-# -
-
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Baseline Model
 
+# + {"hidden": true}
 res_cohort_base_hind = elastic_cohort(credible_authors, get_baseline_vars, EARLY_CAREER, RECOGNITION_CUT,
                                       dv_hindex_incr)
 # res_cohort_base_cita = elastic_cohort(credible_authors, get_baseline_vars, EARLY_CAREER, RECOGNITION_CUT,
 #                                       dv_citations_incr)
 # res_cohort_base_drop = elastic_cohort(get_baseline_vars, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
 
+# + {"hidden": true}
 res_cohort_base_hind
 
 # + {"heading_collapsed": true, "cell_type": "markdown"}
@@ -614,28 +625,35 @@ res_cohort_symcap_cita = elastic_cohort(credible_authors, get_symbolic_vars, EAR
 
 # + {"hidden": true}
 res_cohort_symcap_hind
-# -
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Full Model (Extended Human Capital)
 
+# + {"hidden": true}
 res_cohort_full_hind = elastic_cohort(credible_authors, get_full_vars, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
 res_cohort_full_cita = elastic_cohort(credible_authors, get_full_vars, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
 
 
+# + {"hidden": true}
 res_cohort_full_drop = elastic_cohort(credible_authors, get_full_vars, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
 res_cohort_full_drop
 
+# + {"hidden": true}
 get_report_from_table(res_cohort_full_drop)
 
+# + {"hidden": true}
 get_report_from_table(res_cohort_full_hind)
 
+# + {"hidden": true}
 res_cohort_full_hind
 
+# + {"hidden": true}
 res_cohort_full_hind = elastic_cohort(credible_authors, get_full_vars, EARLY_CAREER, RECOGNITION_CUT, 'h_index_increase_10_3')
 
+# + {"hidden": true}
 res_cohort_full_hind
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # #### Stayed
 
 # + {"hidden": true}
@@ -649,7 +667,7 @@ res_cohort_full_cita_stay = elastic_cohort(credible_authors_stayed, get_full_var
                                            dv_citations_incr)
 res_cohort_full_cita_stay
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
 # #### Plot prediction success over cohorts
 
 # + {"hidden": true}
@@ -698,9 +716,8 @@ plot_metric_over_cohorts(res_cohort_full_cita, 'r2', 'R squared', 'Citation incr
 # ## Aggregated Elastic Net Models
 # We test the effect of different groups of features (human capital, social capital and gender) on success/dropout
 
-dv_hindex_incr = 'h_index_increase_10_3'
+dv_hindex_incr = 'h_index_increase_6_3'
 h_ind_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
-
 h_ind_agg_all
 
 dv_hindex_incr = 'h_index_increase_15_3'
@@ -708,6 +725,11 @@ h_ind_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT,
 results_to_latex(h_ind_agg_all, 'agg_hindex')
 h_ind_agg_all
 
+dv_citations_incr = 'citation_increase_6_3'
+cit_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
+cit_agg_all
+
+dv_citations_incr = 'citation_increase_15_3'
 cit_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
 results_to_latex(cit_agg_all, 'agg_citations')
 cit_agg_all

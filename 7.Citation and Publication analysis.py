@@ -186,11 +186,14 @@ author_order = author_order.merge(data_store.credible_authors[
 all_auths_1994 = author_order[author_order.start_year==1994]['author'].unique()
 print(all_auths_1994.shape)
 
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### top k percent 
 
+# + {"hidden": true}
 agg_cit_per_auth_year['cit_id'] = agg_cit_per_auth_year['cit_id'].astype(int)
 
 
+# + {"hidden": true}
 # TODO: Flaw: array is not full. Taking k percent of non zeros. Add the missing zeros
 def perc_owned_by_top_k(arr, size, k):
     arr = arr.values
@@ -198,11 +201,13 @@ def perc_owned_by_top_k(arr, size, k):
     return sum(arr[arr.argsort()[-top_k:]])/sum(arr)
 
 
+# + {"hidden": true}
 k=1
 perc_owned = agg_cit_per_auth_year.groupby(['start_year', 'year_pub', 'year_cit'])['cit_id', 'cohort_size'].apply(
     lambda x: perc_owned_by_top_k(x['cit_id'], x['cohort_size'].max(), k)).reset_index()
 perc_owned.rename({0: 'perc_owned'}, axis=1, inplace=True)
 
+# + {"hidden": true}
 data = perc_owned
 metric = 'perc_owned'
 for start_year in data.start_year.unique()[-10::2]:
@@ -216,6 +221,8 @@ for start_year in data.start_year.unique()[-10::2]:
     plt.legend()
     plt.show()
 
+
+# -
 
 # ## Gini across cohorts
 
@@ -243,13 +250,14 @@ def plot_criteria_over_cohorts(data, criteria, criteria_name, title, letter, leg
         df = data[data['career_age'] == career_ages[i]]
         ax.plot(df['start_year'], df[criteria], linewidth=linewidth, label=career_ages[i], color=color[i])
 #     ax.set_xlim([0.25, 15.75])
-#     ax.set_ylim([-0.05, 1.05])
+    if('cum' in criteria): ax.set_ylim([0.1, 1.05])
+    else: ax.set_ylim([0.38, 1.05])
     ax.xaxis.set_ticks_position('both')
     ax.yaxis.set_ticks_position('both')
     ax.set_xlabel('Cohort start year', fontsize=fontsize)
     ax.set_ylabel(f'{criteria_name}', fontsize=fontsize)
     ax.set_title(title, fontsize=fontsize)
-#     ax.set_xticks([1, 5, 10, 15])
+    ax.set_xticks([1970, 1980, 1990, 2000])
     ax.tick_params(axis="x", which='major', direction="in", width=linewidth, size=4*linewidth, labelsize=fontsize, pad=7)
     ax.tick_params(axis="x", which='minor', direction="in", width=linewidth, size=2*linewidth, labelsize=fontsize, pad=7)
     ax.tick_params(axis="y", which='major', direction="in", width=linewidth, size=4*linewidth, labelsize=fontsize)
@@ -399,11 +407,11 @@ def plot_first_auth_ineq_gini(data_df, param):
     fig.savefig(f'./fig-7-notebook/first_auth_ineq_gini_{param}_squeze.pdf')
 plot_first_auth_ineq_gini(df_gini_max_y5, 'avg')
 plot_first_auth_ineq_gini(df_gini_max_y5, 'max')
+# -
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Cliffs Delta
 
-# + {"hidden": true}
+# +
 cum_cit_pub_agg_first = citations_window_first.groupby(['start_year', 'career_age', 'gender']).agg({
     'cum_num_pub': list,
     'cum_num_cit': list
@@ -415,7 +423,7 @@ cum_cit_pub_agg = citations_window.groupby(['start_year', 'career_age', 'gender'
 }).reset_index()
 
 
-# + {"code_folding": [], "hidden": true}
+# + {"code_folding": []}
 def get_cohort_effect_size(cohort_careerage_df, metric, gen_a='m', gen_b='f', eff_form='r'):
     data = cohort_careerage_df[cohort_careerage_df.gender.isin([gen_a, gen_b])]
     data = data.set_index(['start_year', 'career_age', 'gender']).unstack(level=-1)
@@ -430,7 +438,7 @@ def get_cohort_effect_size(cohort_careerage_df, metric, gen_a='m', gen_b='f', ef
     return data    
 
 
-# + {"code_folding": [], "hidden": true}
+# + {"code_folding": []}
 # TEST Debugger
 from IPython.core.debugger import set_trace
 def plot_cohort_diffs_over_ages(stats, criterion, criterion_display, ext='', remove_half=False):
@@ -478,6 +486,9 @@ def plot_cohort_diffs_over_ages(stats, criterion, criterion_display, ext='', rem
 
         ax3[i, j].plot(cohort["career_age"], cohort["cliffd_m_f"].values, '-D', markevery=sig_eff_career_ages)
         ax3[i, j].set_title(f"{year}", fontsize=12, fontweight="bold")
+        ax3[i, j].set_ylim([-0.05, 0.22])
+        ax3[i, j].set_yticks([0.0, 0.1, 0.2])
+        
                             #(M:{sig_male} F:{sig_female} S:{significant_effect.shape[0]})", 
         # ax3[i,j].grid(True)
 
@@ -494,32 +505,30 @@ def plot_cohort_diffs_over_ages(stats, criterion, criterion_display, ext='', rem
     plt.close(fig3)
 
 
-# + {"hidden": true, "cell_type": "markdown"}
+# -
+
 # #### What are the variance differences between the population of men and women
 
-# + {"hidden": true}
 cum_cit_pub_agg_first_m_f = cum_cit_pub_agg_first[cum_cit_pub_agg_first.gender.isin(['m', 'f'])]
 cum_cit_pub_agg_first_m_f['cum_num_pub_var'] = cum_cit_pub_agg_first_m_f['cum_num_pub'].apply(np.var)
 cum_cit_pub_agg_first_m_f['cum_num_cit_var'] = cum_cit_pub_agg_first_m_f['cum_num_cit'].apply(np.var)
 
-# + {"hidden": true}
 cum_cit_pub_agg_first_m_f.groupby(['start_year', 'career_age'])['cum_num_pub_var'].apply(pd.DataFrame.diff)
 
-# + {"hidden": true, "cell_type": "markdown"}
 # #### Plot
 
-# + {"hidden": true}
+# +
 mwu_cliff_d_cum_pub_first = get_cohort_effect_size(cum_cit_pub_agg_first, 'cum_num_pub')
 mwu_cliff_d_cum_cit_first = get_cohort_effect_size(cum_cit_pub_agg_first, 'cum_num_cit')
 
 mwu_cliff_d_cum_pub = get_cohort_effect_size(cum_cit_pub_agg, 'cum_num_pub')
 mwu_cliff_d_cum_cit = get_cohort_effect_size(cum_cit_pub_agg, 'cum_num_cit')
 
-# + {"hidden": true}
+# +
 # TODO are mwu and delta same sided?
+# -
 
 
-# + {"hidden": true}
 def get_effect_size_stats(stats):
     effect_size_count = stats.groupby('start_year').agg({'cliffd_m_f': [lambda x: sum(x >= 0.1), lambda x: sum(x <= -0.1)],
                                                          'pvalue': lambda x: sum(x <= 0.05)})
@@ -531,11 +540,9 @@ def get_num_larger_female(stats):
     return num_fem_larger
 
 
-# + {"hidden": true}
 num_larg_female[num_larg_female.cliffd_m_f > 0].shape[0]
 
 
-# + {"hidden": true}
 def report1(stats):
     num_larg_female = get_num_larger_female(stats)
 #     print(num_larg_female)
@@ -546,10 +553,8 @@ report1(mwu_cliff_d_cum_cit_first)
 # report1(mwu_cliff_d_cum_pub)
 # report1(mwu_cliff_d_cum_pub_first)
 
-# + {"hidden": true}
 mwu_cliff_d_cum_cit[mwu_cliff_d_cum_cit.start_year == 1991]
 
-# + {"hidden": true}
 dfs = [mwu_cliff_d_cum_pub, mwu_cliff_d_cum_cit, mwu_cliff_d_cum_pub_first, mwu_cliff_d_cum_cit_first]
 names = ['Publications', 'Citations', 'Pub. first', 'Cit. first']
 res = []
@@ -565,20 +570,17 @@ num_cohorts = pd.DataFrame(res)
 num_cohorts = num_cohorts.T
 num_cohorts.columns = names
 
-# + {"hidden": true}
 # number of cohorts with sig_male, sig_female or sig_mwu showing up at least once 
 num_cohorts
 
-# + {"hidden": true}
 num_observations = pd.DataFrame(res2)
 num_observations = num_observations.T
 num_observations.columns = names
 
-# + {"hidden": true}
 # total num of significant observations
 num_observations
 
-# + {"hidden": true}
+# +
 # pubs
 plot_cohort_diffs_over_ages(mwu_cliff_d_cum_pub_first, 'mwu_cliffsd_cum_pub', 'Cumulative publications first auth', ext='_first')
 plot_cohort_diffs_over_ages(mwu_cliff_d_cum_pub, 'mwu_cliffsd_cum_pub', 'Cumulative publications')
