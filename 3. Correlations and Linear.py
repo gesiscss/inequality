@@ -28,6 +28,7 @@ import plot
 
 # + {"pycharm": {"is_executing": false}}
 from sklearn.linear_model import LinearRegression, ElasticNet, ElasticNetCV, Lasso, LogisticRegressionCV, SGDClassifier
+from sklearn.model_selection import KFold
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score, f1_score, matthews_corrcoef
@@ -48,7 +49,7 @@ MAX_CAREER_LEN = 15
 END_YEAR = 2016
 
 # + {"pycharm": {"is_executing": false}}
-credible_authors = pd.read_csv('derived-data/authors-scientific-extended.csv')
+credible_authors = pd.read_csv('derived-data/authors-scientific-extended_all.csv')
 print(credible_authors.shape)
 # -
 
@@ -73,9 +74,6 @@ credible_authors = credible_authors[credible_authors.start_year.isin(COHORT_STAR
 
 print(credible_authors.shape)
 print(COHORT_START_YEARS)
-
-# + {"pycharm": {"is_executing": false}}
-credible_authors.columns.values
 # -
 
 # ## Linear reg
@@ -305,7 +303,7 @@ def run_elastic_net_cohort(credible_authors, cols_std, categorical_cols, REMOVE_
 #         y_year = credible_authors[credible_authors.start_year == year][dep_var]
         y_year = X_year[dep_var].copy()
         X_year = X_year.drop(dep_var, axis=1)
-        print(year, end=' ')
+#         print(year, end=' ')
         feat_data = run_elastic_net(X_year.drop('start_year', axis=1), y_year)
         feat_data = feat_data.set_index(0)
         feat_data.rename(index=str, columns={1: year}, inplace=True)
@@ -324,19 +322,20 @@ def run_elastic_net(X, y):
     if X.empty:
         X = pd.DataFrame(1, index=np.arange(len(y)), columns=["dummy"])
     
+    kf = KFold(10, True)
     
     if y.nunique()==2:   
         y = y.astype(int)
         #f1, average_precision, roc_auc
-        cv_dict = cross_validate(LogisticRegressionCV(cv=10, penalty='l2', max_iter=200), X, y, scoring="average_precision", cv=10, 
-                                 return_estimator=True, return_train_score=False)
+        cv_dict = cross_validate(LogisticRegressionCV(cv=10, penalty='l2', max_iter=200), X, y, 
+                                 scoring=["f1","average_precision"], cv=kf, return_estimator=True, return_train_score=False)
         net_coef = pd.DataFrame([es.coef_[0] for es in cv_dict['estimator']], columns=X.columns)
 #         print(cv_dict)
-        score = np.mean(cv_dict['test_score'])
-        score2 = None
+        score = np.mean(cv_dict['test_f1'])
+        score2 = np.mean(cv_dict['test_average_precision'])
     else:
         cv_dict = cross_validate(ElasticNetCV(cv=10), X, y, scoring=['r2', 'neg_mean_squared_error'], 
-                                 cv=10, return_estimator=True, return_train_score=False)
+                                 cv=kf, return_estimator=True, return_train_score=False)
         ######
 #         file = open('test.txt', 'w')
 #         pred = cv_dict['estimator'][0]
@@ -363,13 +362,14 @@ def run_elastic_net(X, y):
     cohort_size = len(y)
     #     num_nonzero_coefs = sum(net2.coef_ != 0)
     #     adj_score2 = 1 - (1-score2)*(cohort_size-1)/(cohort_size-num_nonzero_coefs-1)
-    if score2:
+    if y.nunique()!=2:
         net_coef_mean_std.extend([np.round(net_intercept, rounding), np.round(score, rounding), np.round(score2, rounding), cohort_size])
         feat_table = pd.DataFrame(list(zip(np.append(X.columns, ['intercept', 'r2', 'neg_mean_squared_error', 'cohort_size']), net_coef_mean_std)))
     else:
-        net_coef_mean_std.extend([np.round(net_intercept, rounding), np.round(score, rounding), cohort_size])
-        feat_table = pd.DataFrame(list(zip(np.append(X.columns, ['intercept', 'avg_precision', 'cohort_size']), net_coef_mean_std)))
+        net_coef_mean_std.extend([np.round(net_intercept, rounding), np.round(score, rounding), np.round(score2, rounding), cohort_size])
+        feat_table = pd.DataFrame(list(zip(np.append(X.columns, ['intercept', 'f1', 'avg_precision', 'cohort_size']), net_coef_mean_std)))
     return feat_table
+
 
 # + {"code_folding": []}
 # Stuff that we potentially use as outcome Vars
@@ -414,7 +414,7 @@ def results_to_latex(results, name):
     ltx_file.close()
 
 
-# + {"code_folding": [0, 10, 20, 30, 40, 50, 62, 70, 78, 116]}
+# + {"code_folding": [0, 10, 20, 30, 40, 50, 116]}
 def get_baseline_vars():
     INCLUDE_PROD = 0
     INCLUDE_SOCIAL = 0
@@ -480,7 +480,7 @@ def get_full_vars():
 def elastic_cohort(credible_authors, params_func, EARLY_CAREER, RECOGNITION_CUT, DV):
     params = params_func()
     cols_std, categorical_cols = make_cols_lists(*params, EARLY_CAREER, RECOGNITION_CUT, DV)
-    print(cols_std)
+#     print(cols_std)
     REMOVE_NONE_AUTHORS = params[-3]
     res = run_elastic_net_cohort(credible_authors, cols_std, categorical_cols, REMOVE_NONE_AUTHORS, DV)
     res = make_result_table(res)
@@ -508,14 +508,14 @@ def elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, DV):
                    'gender_f', 'gender_m', 'gender_none', 
                    'early_career_degree_3', 'early_career_coauthor_max_hindex_3', 'team_size_median_3',
                    'quantiles_bin_3', 'early_career_qual_3', 'early_career_qual_first_3',
-                   'cohort_size', 'drop_percentage','avg_precision']
+                   'cohort_size', 'drop_percentage','avg_precision', 'f1']
         res_all_agg = res_all_agg.reindex(reorderlist)
         res_all_agg = res_all_agg.fillna('')
         res_all_agg['names'] = ['start year', 'productivity', 'recognition', 'prod first author',
                        'male', 'female', 'none', 
                        'degree', 'coauthor hindex', 'median team size',
                        'top-venue', 'quality', 'quality first author',
-                       'cohort size', '% dropouts','Average precision']
+                       'cohort size', '% dropouts','Average precision', 'F1']
     else:
         reorderlist = ['start_year', 'early_career_prod_3', 'early_career_recognition_EC3_RC3', 'ec_first_auth_3',
                    'gender_f', 'gender_m', 'gender_none', 
@@ -625,35 +625,29 @@ res_cohort_symcap_cita = elastic_cohort(credible_authors, get_symbolic_vars, EAR
 
 # + {"hidden": true}
 res_cohort_symcap_hind
+# -
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # ### Full Model (Extended Human Capital)
 
-# + {"hidden": true}
 res_cohort_full_hind = elastic_cohort(credible_authors, get_full_vars, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
+
+
 res_cohort_full_cita = elastic_cohort(credible_authors, get_full_vars, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
 
-
-# + {"hidden": true}
 res_cohort_full_drop = elastic_cohort(credible_authors, get_full_vars, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
 res_cohort_full_drop
 
-# + {"hidden": true}
 get_report_from_table(res_cohort_full_drop)
 
-# + {"hidden": true}
 get_report_from_table(res_cohort_full_hind)
 
-# + {"hidden": true}
-res_cohort_full_hind
+res_cohort_full_hind['r2']
 
-# + {"hidden": true}
 res_cohort_full_hind = elastic_cohort(credible_authors, get_full_vars, EARLY_CAREER, RECOGNITION_CUT, 'h_index_increase_10_3')
 
-# + {"hidden": true}
 res_cohort_full_hind
 
-# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Stayed
 
 # + {"hidden": true}
@@ -667,7 +661,7 @@ res_cohort_full_cita_stay = elastic_cohort(credible_authors_stayed, get_full_var
                                            dv_citations_incr)
 res_cohort_full_cita_stay
 
-# + {"heading_collapsed": true, "hidden": true, "cell_type": "markdown"}
+# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Plot prediction success over cohorts
 
 # + {"hidden": true}
@@ -716,24 +710,31 @@ plot_metric_over_cohorts(res_cohort_full_cita, 'r2', 'R squared', 'Citation incr
 # ## Aggregated Elastic Net Models
 # We test the effect of different groups of features (human capital, social capital and gender) on success/dropout
 
-dv_hindex_incr = 'h_index_increase_6_3'
-h_ind_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
-h_ind_agg_all
+# +
+# dv_hindex_incr = 'h_index_increase_6_3'
+# h_ind_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
+# results_to_latex(h_ind_agg_all, 'agg_hindex_6_3')
+# h_ind_agg_all
+# -
 
 dv_hindex_incr = 'h_index_increase_15_3'
 h_ind_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_hindex_incr)
-results_to_latex(h_ind_agg_all, 'agg_hindex')
+results_to_latex(h_ind_agg_all, 'agg_hindex_15_3')
 h_ind_agg_all
 
-dv_citations_incr = 'citation_increase_6_3'
-cit_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
-cit_agg_all
+# +
+# dv_citations_incr = 'citation_increase_6_3'
+# cit_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
+# results_to_latex(cit_agg_all, 'agg_citations_6_3')
+# cit_agg_all
+# -
 
 dv_citations_incr = 'citation_increase_15_3'
 cit_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_citations_incr)
-results_to_latex(cit_agg_all, 'agg_citations')
+results_to_latex(cit_agg_all, 'agg_citations_15_3')
 cit_agg_all
 
+# %%time
 drop_agg_all = elastic_agg_all(credible_authors, EARLY_CAREER, RECOGNITION_CUT, dv_dropped)
 results_to_latex(drop_agg_all, 'agg_dropout')
 drop_agg_all
@@ -823,62 +824,137 @@ REMOVE_NONE_AUTHORS = 0
 cols_all, cols_std, categorical_cols = make_cols_lists(INCLUDE_PROD, INCLUDE_SOCIAL, INCLUDE_REC,
                                                        INCLUDE_QUALITY, INCLUDE_GENDER, REMOVE_NONE_AUTHORS, EARLY_CAREER, RECOGNITION_CUT)
 run_elastic_predictions_test_train(cols_all, cols_std, categorical_cols, REMOVE_NONE_AUTHORS, EARLY_CAREER)
+# -
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Test predictive power over different number of observed years
+#
+# The goal is to have 3 experiment setups:
+# 1. Increase the observed years, and at the same time decrease the prediction window  
+# EC - 3,5,7,9,11,13; DV - 15_3, 15_5, 15_7, 15_9, 15_11, 15_13
+# 2. Increase the observed years, but the prediction window stays the same  
+# EC - 3,5,7,9,11,13; DV - 5_3, 7_5, 9_7, 11_9, 13_11, 15_13  
+# EC - 3,5,7,9,11;    DV - 7_3, 9_5, 11_7, 13_9, 15_11  
+# 3. Increase the observed years, but predict static dependent variable  
+# EC - 3,5,7,9,11,13; DV - 15
 
-# + {"hidden": true}
-EARLY_CAREER_LEN_LIST_EXT = [3,5,7,9,11,12]
-RECOGNITION_CUT_OFF_LIST_EXT = [3,5,7,9,11,12]
+# +
+EC_LEN_LIST_EXT = [3,5,7,9,11,13]
+RC_LIST_EXT = [3,5,7,9,11,13]
 
-# + {"hidden": true}
-dv_citations_incr
+for EARLY_CAREER in EC_LEN_LIST_EXT[:-1]:
+    credible_authors[f'citation_increase_{EARLY_CAREER+2}_{EARLY_CAREER}'] = credible_authors[f'citation_count_{EARLY_CAREER+2}'] - credible_authors[f'citation_count_{EARLY_CAREER}']
+    credible_authors[f'h_index_increase_{EARLY_CAREER+2}_{EARLY_CAREER}'] = credible_authors[f'h-index_{EARLY_CAREER+2}'] - credible_authors[f'h-index_{EARLY_CAREER}']
 
 
-# + {"hidden": true}
-def get_r2_increase(COHORT_START_YEARS, EARLY_CAREER_LEN_LIST_EXT, RECOGNITION_CUT_OFF_LIST_EXT, DV):
+# -
+
+def get_r2_increase(COHORT_START_YEARS, EARLY_CAREER_LEN_LIST_EXT, RECOGNITION_CUT_OFF_LIST_EXT, DV, dv_mode, data):
     r2_increase = pd.DataFrame(index=COHORT_START_YEARS)
     for EARLY_CAREER, RECOGNITION_CUT in zip(EARLY_CAREER_LEN_LIST_EXT, RECOGNITION_CUT_OFF_LIST_EXT):
-        print(f'{EARLY_CAREER}, {RECOGNITION_CUT}')
-        DV_ = f'{DV}_15_{EARLY_CAREER}'
+#         print(f'{EARLY_CAREER}, {RECOGNITION_CUT}')
+        if dv_mode == 'fixed': 
+            DV_ = DV
+        elif dv_mode == 'moving':
+            DV_ = f'{DV}_{EARLY_CAREER+2}_{EARLY_CAREER}'
+        elif dv_mode == 'increase': 
+            DV_ = f'{DV}_15_{EARLY_CAREER}'
+        else: 
+            print('ERROR')
+            print(DV_)
+            return
         print(DV_)
-        r2_increase[f'{DV}_{EARLY_CAREER}_{RECOGNITION_CUT}'] = elastic_cohort(credible_authors, get_full_vars,
-                                                                               EARLY_CAREER, RECOGNITION_CUT, DV_)['r2']
+        r2_increase[f'{DV_}_{EARLY_CAREER}'] = elastic_cohort(data, get_full_vars, EARLY_CAREER, RECOGNITION_CUT, DV_)['r2']
     return r2_increase
-r2_increase_cit = get_r2_increase(COHORT_START_YEARS, EARLY_CAREER_LEN_LIST_EXT, RECOGNITION_CUT_OFF_LIST_EXT, 'citation_increase')
-r2_increase_hind = get_r2_increase(COHORT_START_YEARS, EARLY_CAREER_LEN_LIST_EXT, RECOGNITION_CUT_OFF_LIST_EXT, 'h_index_increase')
 
-# + {"hidden": true}
-r2_increase_hind.mean()
 
-# + {"hidden": true}
-linewidth = 2
-fontsize = 18
-fig = plt.figure(figsize=(6, 4))
-ax = fig.add_subplot(111)
+credible_authors_no_drop10 = credible_authors[credible_authors.dropped_after_10 == False]
 
-ax.plot([3,5,7,9,11,12], r2_increase_cit.mean().values, label='citation inc.')
-ax.plot([3,5,7,9,11,12], r2_increase_hind.mean().values, label='h-index inc.')
+# setup 1. mode - increase. 
+r2_increase_cit_inc = get_r2_increase(COHORT_START_YEARS, EC_LEN_LIST_EXT, RC_LIST_EXT, 'citation_increase', 
+                                  'increase', credible_authors)
+r2_increase_hind_inc = get_r2_increase(COHORT_START_YEARS, EC_LEN_LIST_EXT, RC_LIST_EXT, 'h_index_increase', 
+                                   'increase', credible_authors)
 
-ax.xaxis.set_ticks_position('both')
-ax.yaxis.set_ticks_position('both')
-ax.set_xticks([3,5,7,9,11])
+# setup 1. mode - increase. no drop
+r2_increase_cit_inc_nodrop = get_r2_increase(COHORT_START_YEARS, EC_LEN_LIST_EXT, RC_LIST_EXT, 'citation_increase', 
+                                  'increase', credible_authors_no_drop10)
+r2_increase_hind_inc_nodrop = get_r2_increase(COHORT_START_YEARS, EC_LEN_LIST_EXT, RC_LIST_EXT, 'h_index_increase', 
+                                   'increase', credible_authors_no_drop10)
 
-ax.set_xlabel('Number of observed years', fontsize=fontsize)
-ax.set_ylabel('Avg. R2 over cohorts', fontsize=fontsize)
-ax.set_title("Prediction R2 vs observed years", fontsize=fontsize)
-ax.tick_params(axis="x", which='major', direction="in", width=linewidth, size=4*linewidth, labelsize=fontsize, pad=7)
-ax.tick_params(axis="x", which='minor', direction="in", width=linewidth, size=2*linewidth, labelsize=fontsize, pad=7)
-ax.tick_params(axis="y", which='major', direction="in", width=linewidth, size=4*linewidth, labelsize=fontsize)
-ax.tick_params(axis="y", which='minor', direction="in", width=linewidth, size=2*linewidth, labelsize=fontsize)
-ax.spines['left'].set_linewidth(linewidth)
-ax.spines['right'].set_linewidth(linewidth)
-ax.spines['bottom'].set_linewidth(linewidth)
-ax.spines['top'].set_linewidth(linewidth)
-ax.legend(fontsize=fontsize/1.5)
-plt.gcf().text(0., 0.9, 'D', fontsize=fontsize*2)
-plt.subplots_adjust(left=0.25, right=0.95, bottom=0.2, top=0.9)
-plt.savefig('./fig/pred_r2_obs_years.pdf')
+# setup 2. mode - moving. 
+r2_increase_cit_mov = get_r2_increase(COHORT_START_YEARS, EC_LEN_LIST_EXT, RC_LIST_EXT, 'citation_increase', 
+                                  'moving', credible_authors)
+r2_increase_hind_mov = get_r2_increase(COHORT_START_YEARS, EC_LEN_LIST_EXT, RC_LIST_EXT, 'h_index_increase', 
+                                   'moving', credible_authors)
+
+# setup 2. mode - moving. no drop
+r2_increase_cit_mov_nodrop = get_r2_increase(COHORT_START_YEARS, EC_LEN_LIST_EXT, RC_LIST_EXT, 'citation_increase', 
+                                  'moving', credible_authors_no_drop10)
+r2_increase_hind_mov_nodrop = get_r2_increase(COHORT_START_YEARS, EC_LEN_LIST_EXT, RC_LIST_EXT, 'h_index_increase', 
+                                   'moving', credible_authors_no_drop10)
+
+# setup 3. mode - fixed. 
+r2_increase_cit_fix = get_r2_increase(COHORT_START_YEARS, EC_LEN_LIST_EXT, RC_LIST_EXT, 'citation_count_15', 
+                                  'fixed', credible_authors)
+r2_increase_hind_fix = get_r2_increase(COHORT_START_YEARS, EC_LEN_LIST_EXT, RC_LIST_EXT, 'h-index_15', 
+                                   'fixed', credible_authors)
+
+# setup 3. mode - fixed. no drop
+r2_increase_cit_fix_nodrop = get_r2_increase(COHORT_START_YEARS, EC_LEN_LIST_EXT, RC_LIST_EXT, 'citation_count_15', 
+                                  'fixed', credible_authors_no_drop10)
+r2_increase_hind_fix_nodrop = get_r2_increase(COHORT_START_YEARS, EC_LEN_LIST_EXT, RC_LIST_EXT, 'h-index_15', 
+                                   'fixed', credible_authors_no_drop10)
+
+
+def plot_r2_over_obs_years(r2_increase_cit, r2_increase_hind, letter='', ext=''):
+    linewidth = 2
+    fontsize = 18
+    fig = plt.figure(figsize=(6, 4))
+    ax = fig.add_subplot(111)
+    
+    if 'inc' in ext: # A
+        ax.plot([3,5,7,9,11,13], r2_increase_cit.mean().values, label='citations $(t,15)$')
+        ax.plot([3,5,7,9,11,13], r2_increase_hind.mean().values, label='h-index $(t,15)$')
+    elif 'fix' in ext: # B
+        ax.plot([3,5,7,9,11,13], r2_increase_cit.mean().values, label='citations (15)')
+        ax.plot([3,5,7,9,11,13], r2_increase_hind.mean().values, label='h-index (15)')
+    elif 'mov' in ext: #C
+        ax.plot([3,5,7,9,11,13], r2_increase_cit.mean().values, label='citations $(t,t+2)$')
+        ax.plot([3,5,7,9,11,13], r2_increase_hind.mean().values, label='h-index $(t,t+2)$')
+
+    ax.xaxis.set_ticks_position('both')
+    ax.yaxis.set_ticks_position('both')
+    ax.set_xticks([3,5,7,9,11,13])
+    ax.set_ylim([0.0, 1.1])
+
+    ax.set_xlabel('Number of observed years $t$', fontsize=fontsize)
+    ax.set_ylabel('Avg. R2 across cohorts', fontsize=fontsize)
+#     ax.set_title("Prediction R2 vs observed years", fontsize=fontsize)
+    ax.tick_params(axis="x", which='major', direction="in", width=linewidth, size=4*linewidth, labelsize=fontsize, pad=7)
+    ax.tick_params(axis="x", which='minor', direction="in", width=linewidth, size=2*linewidth, labelsize=fontsize, pad=7)
+    ax.tick_params(axis="y", which='major', direction="in", width=linewidth, size=4*linewidth, labelsize=fontsize)
+    ax.tick_params(axis="y", which='minor', direction="in", width=linewidth, size=2*linewidth, labelsize=fontsize)
+    ax.spines['left'].set_linewidth(linewidth)
+    ax.spines['right'].set_linewidth(linewidth)
+    ax.spines['bottom'].set_linewidth(linewidth)
+    ax.spines['top'].set_linewidth(linewidth)
+    ax.legend(fontsize=fontsize/1.5)
+    plt.gcf().text(0., 0.9, letter, fontsize=fontsize*2)
+    plt.subplots_adjust(left=0.25, right=0.95, bottom=0.2, top=0.9)
+    plt.savefig(f'./fig/pred_r2_obs_years_{ext}.pdf')
+
+
+plot_r2_over_obs_years(r2_increase_cit_inc, r2_increase_hind_inc, 'A', ext='inc')
+plot_r2_over_obs_years(r2_increase_cit_fix, r2_increase_hind_fix, 'B', ext='fix')
+plot_r2_over_obs_years(r2_increase_cit_mov, r2_increase_hind_mov, 'C', ext='mov')
+
+plot_r2_over_obs_years(r2_increase_cit_inc_nodrop, r2_increase_hind_inc_nodrop, 'D', ext='inc_nodrop')
+plot_r2_over_obs_years(r2_increase_cit_fix_nodrop, r2_increase_hind_fix_nodrop, 'E', ext='fix_nodrop')
+plot_r2_over_obs_years(r2_increase_cit_mov_nodrop, r2_increase_hind_mov_nodrop, 'F', ext='mov_nodrop')
+
+r2_increase_cit_mov_nodrop.mean()
+
+r2_increase_cit_mov.mean()
 
 # + {"heading_collapsed": true, "cell_type": "markdown"}
 # #### Test predictive power over different number of years being predicted
