@@ -1,12 +1,13 @@
 # ---
 # jupyter:
 #   jupytext:
+#     cell_metadata_json: true
 #     formats: ipynb,py:light
 #     text_representation:
 #       extension: .py
 #       format_name: light
-#       format_version: '1.4'
-#       jupytext_version: 1.2.4
+#       format_version: '1.5'
+#       jupytext_version: 1.6.0
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -34,7 +35,7 @@ SUCCESS_CUTOFF_LIST = [15] #6, 8,
 # Length of observed career for dropouts
 # (1-3), middle career (4-9), late career (10-15)
 CAREER_LENGTH_DROPOUTS_LIST = [(0, 15)]
-# CAREER_LENGTH_DROPOUTS = 15
+# CAREER_LENGTH_DROPOUTS = wi
 # INACTIVE_TIME_DROPOUTS = 10
 INACTIVE_TIME_DROPOUTS_LIST = [5,10]
 
@@ -536,7 +537,7 @@ for EARLY_CAREER in EARLY_CAREER_LEN_LIST:
 
     # credible_authors[f'ranking_{EARLY_CAREER}'] = credible_authors[f'ranking_{EARLY_CAREER}'].fillna(0)
 
-# + {"pycharm": {"name": "#%% md\n"}, "cell_type": "markdown"}
+# + [markdown] {"pycharm": {"name": "#%% md\n"}}
 # ## Number of early publications - first author (DF3)
 
 # + {"pycharm": {"name": "#%%\n"}}
@@ -573,7 +574,7 @@ print(publications_citations_no_uncited_first.shape)
 print(publications_citations_no_uncited.shape)
 
 
-# + {"code_folding": [1, 35, 70]}
+# + {"code_folding": [1]}
 # create a dataframe with 15 career age entries for every author
 def create_counts_df(credible_authors, citations_year_auth_df, author_year_numPub_df):
     counts0 = credible_authors[['author', 'start_year']].copy()
@@ -673,10 +674,10 @@ counts_df_5 = make_counts_file(base_df, publications_citations_no_uncited, WINDO
 counts_df_first_5 = make_counts_file(base_df_first, publications_citations_no_uncited_first, WINDOW_SIZE, file_ext='_first')
 #TODO write tests for counts
 
-# + {"heading_collapsed": true, "cell_type": "markdown"}
+# + [markdown] {"heading_collapsed": true}
 # ## Deprecated
 
-# + {"hidden": true, "cell_type": "markdown"}
+# + [markdown] {"hidden": true}
 # ### Early, mid and late papers analysis - citations
 
 # + {"code_folding": [], "hidden": true}
@@ -696,7 +697,7 @@ counts_df_first_5 = make_counts_file(base_df_first, publications_citations_no_un
 #         counts[f'ec_cit_{start}_{end}_cum'] = counts.sort_values(['author', 'career_age']).groupby('author')[
 #             f'ec_cit_{start}_{end}'].transform(pd.Series.cumsum)
 
-# + {"hidden": true, "cell_type": "markdown"}
+# + [markdown] {"hidden": true}
 # ### Early Coauthor max citations - deprecated
 
 # + {"hidden": true}
