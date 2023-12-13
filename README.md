@@ -4,16 +4,18 @@ This repository houses the code to fully reproduce the study by Lietz et al. (fo
 
 ## Computational environment
 
-The code is developed for the Python and package versions specified in the [environment](environment.yml) file. To guarantee reproducibility, you can either run this code in the cloud by clicking on this button:
-
-[![Binder](https://mybinder.org/badge_logo.svg)](https://notebooks.gesis.org/binder/v2/gh/gesiscss/inequality/HEAD)
-
-Or you can set up a local environment by following these steps:
+The code is developed for the Python and package versions specified in the [environment](environment.yml) file. To guarantee reproducibility, you can set up a local environment by following these steps:
 
 1. Install the [Anaconda Distribution](https://www.anaconda.com/download)
 2. Download the [environment](environment.yml) file into your user directory
 3. In your user directory, run this command to set up a local environment: `conda env create -f environment.yml`
 4. Activate this environment to work with it: `conda activate inequality`
+
+You can also run this code in the cloud by clicking on this button:
+
+[![Binder](https://mybinder.org/badge_logo.svg)](https://notebooks.gesis.org/binder/v2/gh/gesiscss/inequality/HEAD)
+
+A docker image is [here](https://hub.docker.com/r/gesiscss/binder-r2d-g5b5b759-gesiscss-2dinequality-d3a6f4).
 
 ## Execution
 
