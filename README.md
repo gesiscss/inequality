@@ -1,6 +1,6 @@
 # Individual and gender inequality in computer science: A career study of cohorts from 1970 to 2000
 
-This repository houses the code to fully reproduce the study by Lietz et al. (forthcoming). Red the preprint [here](https://arxiv.org/abs/2311.04559).
+This repository houses the code to fully reproduce the study by Lietz et al. (forthcoming). Read the preprint [here](https://arxiv.org/abs/2311.04559).
 
 ## Computational environment
 
